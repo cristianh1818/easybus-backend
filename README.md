@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/img/logo-easybus-cuadrado.png" alt="EASYBUS" width="160" />
+</p>
+
 # EASYBUS — Backend (API REST)
 
 Backend de **EASYBUS**, plataforma para consultar y gestionar la información del transporte público
@@ -5,6 +9,9 @@ Backend de **EASYBUS**, plataforma para consultar y gestionar la información de
 
 Proyecto de la asignatura *Infraestructura y diseño* — Ingeniería de Sistemas, Universidad de Córdoba.
 Autores: Cristian Herrera Méndez y Kevin Vega Machado.
+
+📄 Documento de infraestructura y requerimientos:
+[docs/EASYBUS-infraestructura-y-requerimientos.docx](docs/EASYBUS-infraestructura-y-requerimientos.docx)
 
 > ⚠️ **Los datos de ejemplo NO son oficiales.** Nombres, coordenadas, recorridos y horarios de los
 > embarcaderos y rutas son aproximados, se crearon para la demostración y están marcados con
@@ -76,6 +83,17 @@ npm run start:dev
 | `docker exec easybus-db psql -U easybus -d easybus -c "\dt public.*"` | Ver las tablas |
 
 ## 5. Estructura del proyecto
+
+```
+easybus-backend/
+├── docs/                   Documento de requerimientos y logos (img/)
+├── panel/                  Panel visual de pruebas servido en /panel (ver sección 9)
+├── src/                    Código del backend (detalle abajo)
+├── test/                   Pruebas de integración (e2e)
+├── docker-compose.yml      Base de datos PostgreSQL + PostGIS
+├── .env.example            Plantilla de variables de entorno (copiar como .env)
+└── package.json, tsconfig*.json, nest-cli.json, vitest.config*.ts   Configuración
+```
 
 ```
 src/
