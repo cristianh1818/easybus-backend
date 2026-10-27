@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EASYBUS · Panel de administración</title>
+    <link rel="icon" type="image/png" href="/panel/img/logo-circulo.png" />
+    <link rel="stylesheet" href="/panel/vendor/leaflet/leaflet.css" />
+    <link rel="stylesheet" href="/panel/css/panel.css" />
+  </head>
+  <body>
+    <!-- Aviso permanente: los datos cargados son de ejemplo -->
+    <div class="aviso-datos" role="note">
+      ⚠ Datos de ejemplo <strong>NO oficiales</strong> — coordenadas, recorridos y horarios aproximados, pendientes de validación.
+    </div>
+
+    <!-- ============ Pantalla de inicio de sesión ============ -->
+    <section id="pantalla-login" class="login" hidden>
+      <form id="form-login" class="login-tarjeta" autocomplete="on">
+        <div class="login-marca">
+          <img src="/panel/img/logo-cuadrado.png" alt="EASYBUS" class="login-logo" width="150" height="150" />
+          <div class="marca-sub">Businú · río Sinú · Montería</div>
+        </div>
+        <h1>Panel de administración</h1>
+        <label>
+          Correo
+          <input type="email" name="correo" required value="admin@easybus.co" autocomplete="username" />
+        </label>
+        <label>
+          Contraseña
+          <input type="password" name="password" required autocomplete="current-password" />
+        </label>
+        <div id="login-mensaje" class="mensaje-error" role="alert" hidden></div>
+        <button type="submit" class="btn btn-primario btn-bloque">Ingresar</button>
+        <p class="login-ayuda">Usuario de demostración: <code>admin@easybus.co</code> / <code>Admin123*</code></p>
+      </form>
+    </section>
+
+    <!-- ============ Aplicación (después del login) ============ -->
+    <div id="pantalla-app" class="app" hidden>
+      <aside class="lateral">
+        <div class="marca">
+          <img src="/panel/img/logo-circulo.png" alt="" class="marca-logo" width="44" height="44" />
+          <div>
+            <div class="marca-nombre">EASYBUS</div>
+            <div class="marca-sub">Panel administrador</div>
+          </div>
+        </div>
+        <nav id="menu" class="menu" aria-label="Secciones"></nav>
+        <div class="lateral-pie">
+          <a href="/api/docs" target="_blank" rel="noopener">Abrir Swagger ↗</a>
+        </div>
+      </aside>
+
+      <div class="principal">
+        <header class="cabecera">
+          <h2 id="titulo-seccion">Inicio</h2>
+          <div class="cabecera-usuario">
+            <span id="nombre-usuario" class="usuario-nombre"></span>
+            <button id="btn-salir" type="button" class="btn btn-secundario">Cerrar sesión</button>
+          </div>
+        </header>
+        <main id="contenido" class="contenido" tabindex="-1"></main>
+      </div>
+    </div>
+
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+
+    <script src="/panel/vendor/leaflet/leaflet.js"></script>
+    <script type="module" src="/panel/js/app.js"></script>
+  </body>
+</html>

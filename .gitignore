@@ -1,0 +1,15 @@
+# Dependencias y compilados
+node_modules/
+dist/
+dist-seed/
+coverage/
+
+# Variables de entorno (contienen contraseñas, nunca se suben)
+.env
+.env.*
+!.env.example
+
+# Otros
+*.log
+*.tsbuildinfo
+.DS_Store

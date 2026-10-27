@@ -1,0 +1,25 @@
+# Servicios de apoyo para desarrollo local de EASYBUS.
+# Por ahora solo la base de datos PostgreSQL con la extensión PostGIS.
+# Los valores ${...} se leen del archivo .env de esta misma carpeta.
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: easybus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: America/Bogota
+    ports:
+      - '${DB_PORT}:5432'
+    volumes:
+      - easybus_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  easybus_pgdata:
