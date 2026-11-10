@@ -206,6 +206,7 @@ se hace agregando campos de modo/tipo a estas mismas tablas, no creando tablas p
 | GET | `/embarcaderos?tipo=` | Embarcaderos en servicio (activos y cerrados temporalmente) | — |
 | GET | `/embarcaderos/{id}` | Detalle + rutas activas que lo atienden (parada N de M, minutos desde el origen) | RF-04 |
 | GET | `/embarcaderos/cercanos?lat=&lng=&radio=&limite=` | Embarcaderos a menos de `radio` metros (50–5000, por defecto 500), del más cercano al más lejano | RF-09 |
+| GET | `/avisos?rutaId=&embarcaderoId=` | Avisos de servicio vigentes, suspendidos primero | — |
 | POST | `/reportes` | Reportar un error (token opcional) | RF-12 |
 | POST | `/auth/login` · `/auth/register` | Iniciar sesión / crear cuenta de pasajero | RF-10/14 |
 | GET | `/health` | Estado de la API y la base de datos | RNF-11 |
@@ -228,6 +229,9 @@ se hace agregando campos de modo/tipo a estas mismas tablas, no creando tablas p
 | PATCH/DELETE | `/admin/horarios/{id}` | Editar / eliminar una hora | RF-18 |
 | GET/POST | `/admin/festivos` · DELETE `/admin/festivos/{fecha}` | Gestionar festivos | RF-18 |
 | GET | `/admin/reportes` · GET/PATCH `/admin/reportes/{id}` | Ver y gestionar reportes | RF-20 |
+| GET/POST | `/admin/avisos` (`?vigencia=programado\|vigente\|vencido`) | Listar / publicar avisos de servicio | — |
+| GET/PATCH/DELETE | `/admin/avisos/{id}` | Ver / editar / eliminar (solo si está programado) | — |
+| POST | `/admin/avisos/{id}/cerrar` | Terminar ahora un aviso vigente | — |
 | GET | `/admin/auditoria` | Registro de cambios (quién, qué, cuándo, antes/después) | RF-21 |
 | GET | `/admin/resumen` | Cifras generales | — |
 | GET | `/admin/usuarios` | Usuarios registrados | — |
@@ -237,6 +241,25 @@ Los embarcaderos `inactivos` nunca aparecen en las consultas públicas. La búsq
 ubicación GPS del usuario no se envía al servidor; `/embarcaderos/cercanos` está pensado para un punto
 que el usuario busca o escribe (origen o destino). Para "cerca de mí", la app calcula la distancia en el
 dispositivo con la lista de `/embarcaderos`.
+
+### Avisos de servicio
+
+Para el río son clave: si el Sinú crece o baja demasiado, el servicio se suspende. Tabla `avisos_servicio`:
+
+- **Tipo** (también su prioridad al mostrarlos): `suspendido` → `retraso` → `cambio_horario` → `informativo`.
+- **Motivo**: `nivel_rio`, `clima`, `mantenimiento`, `otro`. Título y mensaje para el pasajero.
+- **Alcance**: sin ruta ni embarcadero = todo el servicio; solo ruta; solo embarcadero (afecta a todas
+  las rutas que pasan por él); o ruta + embarcadero (ese embarcadero en esa ruta).
+- **Vigencia**: de `vigente_desde` (incluido) a `vigente_hasta` (excluido; vacío = hasta que se cierre).
+  Se calcula como `programado`, `vigente` o `vencido`. Las fechas sin zona horaria se toman como hora
+  de Montería. **Cerrar** un aviso pone `vigente_hasta = ahora` y lo deja en el historial.
+  **Eliminar** solo es posible si el aviso está programado (nunca estuvo vigente); si ya lo estuvo,
+  la API responde 409 y pide cerrarlo, para no perder el historial de lo comunicado a los pasajeros.
+- `GET /avisos?rutaId=` devuelve los generales, los de esa ruta y los de sus embarcaderos;
+  `?embarcaderoId=` devuelve los generales, los de ese embarcadero y los de las rutas que lo atienden.
+- Todo cambio queda en la auditoría (`avisos_servicio`). La app debe pedirlos al abrirse y mostrarlos
+  antes que cualquier horario. En el paso siguiente la próxima salida responderá `SUSPENDED` cuando
+  haya una suspensión vigente.
 
 ### Cálculo de la próxima salida (sección 8.3 del documento)
 

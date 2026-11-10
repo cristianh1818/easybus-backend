@@ -64,6 +64,28 @@ export enum EstadoReporte {
   DESCARTADO = 'descartado',
 }
 
+// Avisos de servicio: el orden de la lista es también su prioridad al mostrarlos
+export enum TipoAviso {
+  SUSPENDIDO = 'suspendido',
+  RETRASO = 'retraso',
+  CAMBIO_HORARIO = 'cambio_horario',
+  INFORMATIVO = 'informativo',
+}
+
+export enum MotivoAviso {
+  NIVEL_RIO = 'nivel_rio',
+  CLIMA = 'clima',
+  MANTENIMIENTO = 'mantenimiento',
+  OTRO = 'otro',
+}
+
+// Calculado a partir de las fechas, no se guarda
+export enum VigenciaAviso {
+  PROGRAMADO = 'programado', // aún no empieza
+  VIGENTE = 'vigente',
+  VENCIDO = 'vencido',
+}
+
 export enum AccionAuditoria {
   CREAR = 'crear',
   ACTUALIZAR = 'actualizar',

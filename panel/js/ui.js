@@ -100,6 +100,7 @@ export const TEXTOS = {
     horarios: 'Horarios',
     dias_festivos: 'Festivos',
     reportes: 'Reportes',
+    avisos_servicio: 'Avisos de servicio',
   },
 };
 
