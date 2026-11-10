@@ -104,11 +104,13 @@ easybus-backend/
 src/
 ├── main.ts                 Arranque: prefijo /api/v1, validación, CORS, Swagger
 ├── app.module.ts           Módulo raíz: configuración, conexión a BD, límite de peticiones
-├── common/                 Enums, filtro de errores de BD, validadores y utilidades
+├── common/                 Enums, formato uniforme de errores, validadores y utilidades
 ├── database/               Conexión para el CLI de TypeORM y migraciones versionadas
 ├── auth/                   Login/registro, JWT, guards de rol, decorador @Auth()
 ├── usuarios/               Usuarios y favoritos; crea el administrador inicial
-├── embarcaderos/           CRUD de embarcaderos (puntos geográficos)
+├── embarcaderos/           CRUD de embarcaderos (puntos geográficos) y consultas públicas
+├── embarcaciones/          Flota: embarcaciones con capacidad y estado
+├── avisos/                 Avisos de servicio (suspensiones, retrasos…)
 ├── rutas/                  Rutas, sentidos (ida/vuelta), trazado y secuencia de embarcaderos
 ├── horarios/               Horarios por sentido y tipo de día; días festivos
 ├── reportes/               Reportes de error de los usuarios y su gestión
@@ -232,6 +234,8 @@ se hace agregando campos de modo/tipo a estas mismas tablas, no creando tablas p
 | GET/POST | `/admin/avisos` (`?vigencia=programado\|vigente\|vencido`) | Listar / publicar avisos de servicio | — |
 | GET/PATCH/DELETE | `/admin/avisos/{id}` | Ver / editar / eliminar (solo si está programado) | — |
 | POST | `/admin/avisos/{id}/cerrar` | Terminar ahora un aviso vigente | — |
+| GET/POST | `/admin/embarcaciones` (`?estado=operativa\|mantenimiento`) | Listar / registrar embarcaciones | — |
+| GET/PATCH/DELETE | `/admin/embarcaciones/{id}` | Ver / editar (p. ej. pasar a mantenimiento) / eliminar | — |
 | GET | `/admin/auditoria` | Registro de cambios (quién, qué, cuándo, antes/después) | RF-21 |
 | GET | `/admin/resumen` | Cifras generales | — |
 | GET | `/admin/usuarios` | Usuarios registrados | — |
@@ -282,6 +286,45 @@ Para el río son clave: si el Sinú crece o baja demasiado, el servicio se suspe
 El parámetro opcional `momento` (ej. `2026-11-02T07:10`) simula otra fecha/hora; los avisos también se
 evalúan en ese momento.
 
+### Embarcaciones
+
+Tabla `embarcaciones`: `codigo` único (se guarda en mayúsculas, ej. `BN-01`), `nombre`, `capacidad`
+(pasajeros, entero mayor que 0), `estado` (`operativa` / `mantenimiento`), `tipo` (`embarcacion`; `bus`
+en la fase 2), `observaciones` y `es_oficial`. Sin GPS en la beta: es el inventario de la flota. Todo
+cambio queda en la auditoría.
+
+### Formato uniforme de errores
+
+Toda respuesta de error tiene la misma forma:
+
+```json
+{ "statusCode": 409, "code": "CODIGO_DUPLICADO", "message": "Ya existe una embarcación con el código BN-01" }
+```
+
+- `statusCode`: código HTTP. `message`: texto en español para mostrar al usuario.
+- `code`: código interno estable para que la app y el panel decidan qué hacer sin leer el texto.
+- En validaciones (400) se agrega `errores`: la lista de problemas, uno por campo.
+- Los mensajes que NestJS, Passport o class-validator generan en inglés se traducen.
+- En un error 500 no se revelan detalles internos (se registran solo en la consola del servidor).
+
+| code | HTTP | Cuándo |
+|---|---|---|
+| `DATOS_INVALIDOS` | 400 | Validación de datos (trae `errores`) |
+| `FORMATO_INVALIDO` / `FECHA_INVALIDA` | 400 | Formato rechazado por PostgreSQL |
+| `EMBARCADERO_FUERA_DE_RUTA` | 400 | `desde=` con un embarcadero que no está en ese sentido |
+| `NO_AUTENTICADO` | 401 | Falta el token o venció |
+| `CREDENCIALES_INVALIDAS` | 401 | Correo o contraseña incorrectos |
+| `SIN_PERMISO` | 403 | El rol no permite la acción |
+| `NO_ENCONTRADO` | 404 | Registro o dirección inexistente |
+| `CONFLICTO` | 409 | Conflicto genérico |
+| `CODIGO_DUPLICADO` / `CORREO_REGISTRADO` / `HORARIO_DUPLICADO` / `FESTIVO_DUPLICADO` / `REGISTRO_DUPLICADO` | 409 | Ya existe |
+| `EMBARCADERO_EN_USO` / `REGISTRO_EN_USO` | 409 | No se puede borrar porque otros datos lo usan |
+| `AVISO_NO_ELIMINABLE` / `AVISO_VENCIDO` / `AVISO_NO_INICIADO` | 409 | Reglas de los avisos |
+| `DEMASIADAS_PETICIONES` | 429 | Límite de peticiones superado |
+| `ERROR_INTERNO` | 500 | Error inesperado |
+
+Código: `src/common/errores/` (función pura `formatearError`, con pruebas unitarias, y el filtro global).
+
 ## 8. Seguridad implementada
 
 - Contraseñas con **bcrypt**; el hash nunca se devuelve en las respuestas.
@@ -306,6 +349,7 @@ y solo consume la API REST, igual que lo hará el panel Next.js definitivo.
 | Horarios | Por ruta, sentido y tipo de día: agregar/quitar una hora o reemplazar la lista (con generador "cada N min") |
 | Festivos | Lista por año, agregar y quitar |
 | Avisos de servicio | Publicar (tipo, motivo, ruta/embarcadero, vigencia), editar, cerrar (vigentes) y eliminar (programados); filtro por vigencia y tipo |
+| Embarcaciones | Registrar, editar, pasar a mantenimiento / operativa y eliminar; cifras de la flota |
 | Reportes | Filtro por estado y cambio de estado con respuesta del administrador |
 | Auditoría | Historial con filtros; "Ver cambios" muestra campo por campo el antes y el después |
 | Vista pasajero | Usa **solo** endpoints públicos: rutas activas, mapa con trazado, avisos antes que los horarios, próxima salida desde cualquier embarcadero y tarjeta de suspensión |
@@ -333,6 +377,8 @@ panel/
 - Importación CSV / GeoJSON (RF-19).
 - Búsquedas por cercanía con PostGIS: embarcaderos cercanos y rutas por origen/destino (RF-07, RF-09).
 - Favoritos del pasajero (RF-11) — la tabla ya existe.
+- Asignar embarcaciones a horarios (qué embarcación hace cada salida), para mostrar capacidad o
+  avisar cuando una embarcación pasa a mantenimiento y afecta salidas programadas.
 - Validar datos reales con el operador del Businú.
 
 ---

@@ -146,7 +146,10 @@ export class HorariosService {
 
   private async verificarDuplicado(rutaSentidoId: string, tipoDia: TipoDia, horaSalida: string) {
     if (await this.repo.existsBy({ rutaSentidoId, tipoDia, horaSalida })) {
-      throw new ConflictException(`Ya existe la salida de las ${horaSalida} para ese tipo de día`);
+      throw new ConflictException({
+        code: 'HORARIO_DUPLICADO',
+        message: `Ya existe la salida de las ${horaSalida} para ese tipo de día`,
+      });
     }
   }
 

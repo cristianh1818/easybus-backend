@@ -109,6 +109,7 @@ export const TEXTOS = {
   tipoAviso: { suspendido: 'Suspendido', retraso: 'Retraso', cambio_horario: 'Cambio de horario', informativo: 'Informativo' },
   motivoAviso: { nivel_rio: 'Nivel del río', clima: 'Clima', mantenimiento: 'Mantenimiento', otro: 'Otro' },
   vigenciaAviso: { programado: 'Programado', vigente: 'Vigente', vencido: 'Vencido' },
+  estadoEmbarcacion: { operativa: 'Operativa', mantenimiento: 'En mantenimiento' },
   estadoReporte: { pendiente: 'Pendiente', en_revision: 'En revisión', resuelto: 'Resuelto', descartado: 'Descartado' },
   tipoReporte: { ruta: 'Ruta', embarcadero: 'Embarcadero', horario: 'Horario', otro: 'Otro' },
   accion: { crear: 'Crear', actualizar: 'Actualizar', eliminar: 'Eliminar' },
@@ -121,6 +122,7 @@ export const TEXTOS = {
     dias_festivos: 'Festivos',
     reportes: 'Reportes',
     avisos_servicio: 'Avisos de servicio',
+    embarcaciones: 'Embarcaciones',
   },
 };
 

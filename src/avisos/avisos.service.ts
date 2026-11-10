@@ -171,9 +171,14 @@ export class AvisosService {
   async cerrar(id: string, usuarioId: string) {
     const aviso = await this.buscar(id);
     const estado = vigencia(aviso.vigenteDesde, aviso.vigenteHasta);
-    if (estado === VigenciaAviso.VENCIDO) throw new ConflictException('El aviso ya está vencido');
+    if (estado === VigenciaAviso.VENCIDO) {
+      throw new ConflictException({ code: 'AVISO_VENCIDO', message: 'El aviso ya está vencido' });
+    }
     if (estado === VigenciaAviso.PROGRAMADO) {
-      throw new ConflictException('El aviso aún no ha empezado: edita sus fechas o elimínalo');
+      throw new ConflictException({
+        code: 'AVISO_NO_INICIADO',
+        message: 'El aviso aún no ha empezado: edita sus fechas o elimínalo',
+      });
     }
     const previo = instantanea(aviso);
     await this.repo.update(id, { vigenteHasta: new Date() });
@@ -194,11 +199,13 @@ export class AvisosService {
     const aviso = await this.buscar(id);
     const estado = vigencia(aviso.vigenteDesde, aviso.vigenteHasta);
     if (!puedeEliminarse(estado)) {
-      throw new ConflictException(
-        estado === VigenciaAviso.VIGENTE
-          ? 'El aviso está vigente: ciérralo (POST /admin/avisos/{id}/cerrar) para conservar el historial'
-          : 'El aviso ya estuvo vigente y es parte del historial: no se puede eliminar',
-      );
+      throw new ConflictException({
+        code: 'AVISO_NO_ELIMINABLE',
+        message:
+          estado === VigenciaAviso.VIGENTE
+            ? 'El aviso está vigente: ciérralo (POST /admin/avisos/{id}/cerrar) para conservar el historial'
+            : 'El aviso ya estuvo vigente y es parte del historial: no se puede eliminar',
+      });
     }
     await this.repo.delete(id);
     await this.auditoria.registrar({

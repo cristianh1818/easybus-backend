@@ -20,6 +20,8 @@ export class AdminResumenController {
         (SELECT count(*) FROM embarcaderos)::int                         AS "embarcaderos",
         (SELECT count(*) FROM embarcaderos WHERE estado = 'activo')::int AS "embarcaderosActivos",
         (SELECT count(*) FROM horarios)::int                             AS "horarios",
+        (SELECT count(*) FROM embarcaciones)::int                        AS "embarcaciones",
+        (SELECT count(*) FROM embarcaciones WHERE estado = 'operativa')::int AS "embarcacionesOperativas",
         (SELECT count(*) FROM dias_festivos WHERE fecha >= current_date)::int AS "festivosProximos",
         (SELECT count(*) FROM reportes WHERE estado = 'pendiente')::int  AS "reportesPendientes",
         (SELECT count(*) FROM avisos_servicio

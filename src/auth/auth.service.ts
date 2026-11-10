@@ -23,7 +23,10 @@ export class AuthService {
     // así no se revela qué correos están registrados
     const claveOk = usuario ? await compare(dto.password, usuario.contrasenaHash) : false;
     if (!usuario || !claveOk || !usuario.activo) {
-      throw new UnauthorizedException('Correo o contraseña incorrectos');
+      throw new UnauthorizedException({
+        code: 'CREDENCIALES_INVALIDAS',
+        message: 'Correo o contraseña incorrectos',
+      });
     }
     return this.emitirToken(usuario);
   }

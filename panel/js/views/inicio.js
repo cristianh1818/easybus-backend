@@ -26,6 +26,7 @@ export default {
       <div class="cifras">
         ${cifra(resumen.rutasActivas, 'Rutas activas', '#/rutas', `${resumen.rutas} rutas en total`)}
         ${cifra(resumen.embarcaderosActivos, 'Embarcaderos activos', '#/embarcaderos', `${resumen.embarcaderos} en total`)}
+        ${cifra(resumen.embarcacionesOperativas, 'Embarcaciones operativas', '#/embarcaciones', `${resumen.embarcaciones} en total`)}
         ${cifra(resumen.horarios, 'Salidas programadas', '#/horarios', 'Todas las rutas, sentidos y tipos de día')}
         ${cifra(resumen.festivosProximos, 'Festivos próximos', '#/festivos', 'Aplican horario de domingo/festivo')}
         ${cifra(

@@ -12,6 +12,7 @@ import reportes from './views/reportes.js';
 import auditoria from './views/auditoria.js';
 import pasajero from './views/pasajero.js';
 import avisos from './views/avisos.js';
+import embarcaciones from './views/embarcaciones.js';
 
 // Secciones del menú. Las que no tienen "vista" todavía muestran "en construcción".
 // Cada vista tiene render(contenedor) y, opcionalmente, alMostrar() y alSalir().
@@ -20,6 +21,7 @@ const SECCIONES = [
   { separador: 'Gestión' },
   { id: 'embarcaderos', titulo: 'Embarcaderos', vista: embarcaderos },
   { id: 'rutas', titulo: 'Rutas', vista: rutas },
+  { id: 'embarcaciones', titulo: 'Embarcaciones', vista: embarcaciones },
   { id: 'horarios', titulo: 'Horarios', vista: horarios },
   { id: 'festivos', titulo: 'Festivos', vista: festivos },
   { id: 'avisos', titulo: 'Avisos de servicio', vista: avisos },

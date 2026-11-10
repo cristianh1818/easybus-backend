@@ -64,6 +64,18 @@ export enum EstadoReporte {
   DESCARTADO = 'descartado',
 }
 
+// Vehículo que presta el servicio. La tabla se llama "embarcaciones" (nombres en español);
+// en la fase 2 también guardará buses.
+export enum TipoEmbarcacion {
+  EMBARCACION = 'embarcacion',
+  BUS = 'bus',
+}
+
+export enum EstadoEmbarcacion {
+  OPERATIVA = 'operativa',
+  MANTENIMIENTO = 'mantenimiento',
+}
+
 // Avisos de servicio: el orden de la lista es también su prioridad al mostrarlos
 export enum TipoAviso {
   SUSPENDIDO = 'suspendido',

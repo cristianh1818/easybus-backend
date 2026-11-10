@@ -49,7 +49,7 @@ export class UsuariosService implements OnApplicationBootstrap {
   }): Promise<Usuario> {
     const correo = datos.correo.toLowerCase().trim();
     if (await this.repo.existsBy({ correo })) {
-      throw new ConflictException('Ya existe una cuenta con ese correo');
+      throw new ConflictException({ code: 'CORREO_REGISTRADO', message: 'Ya existe una cuenta con ese correo' });
     }
 
     const usuario = this.repo.create({

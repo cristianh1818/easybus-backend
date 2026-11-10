@@ -23,7 +23,10 @@ export class FestivosService {
 
   async crear(dto: CrearFestivoDto, usuarioId: string) {
     if (await this.repo.existsBy({ fecha: dto.fecha })) {
-      throw new ConflictException(`Ya hay un festivo registrado el ${dto.fecha}`);
+      throw new ConflictException({
+        code: 'FESTIVO_DUPLICADO',
+        message: `Ya hay un festivo registrado el ${dto.fecha}`,
+      });
     }
     const festivo = await this.repo.save(this.repo.create(dto));
     await this.auditoria.registrar({

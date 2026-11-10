@@ -16,6 +16,7 @@ import { AuditoriaModule } from './auditoria/auditoria.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { PublicoModule } from './publico/publico.module.js';
 import { AvisosModule } from './avisos/avisos.module.js';
+import { EmbarcacionesModule } from './embarcaciones/embarcaciones.module.js';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { AvisosModule } from './avisos/avisos.module.js';
     AdminModule,
     PublicoModule,
     AvisosModule,
+    EmbarcacionesModule,
   ],
   // Aplica el límite de peticiones a toda la API
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

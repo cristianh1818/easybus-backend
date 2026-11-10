@@ -58,9 +58,10 @@ export class ProximaSalidaService {
     if (desdeId) {
       parada = secuencia.find((p) => p.embarcaderoId === desdeId) ?? null;
       if (!parada) {
-        throw new BadRequestException(
-          `Ese embarcadero no está en el sentido ${sentido} de la ruta ${ruta.codigo}`,
-        );
+        throw new BadRequestException({
+          code: 'EMBARCADERO_FUERA_DE_RUTA',
+          message: `Ese embarcadero no está en el sentido ${sentido} de la ruta ${ruta.codigo}`,
+        });
       }
     }
     const desfase = parada?.minutosDesdeOrigen ?? 0;

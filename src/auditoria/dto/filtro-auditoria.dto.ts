@@ -12,6 +12,7 @@ export const ENTIDADES_AUDITADAS = [
   'dias_festivos',
   'reportes',
   'avisos_servicio',
+  'embarcaciones',
 ] as const;
 
 export class FiltroAuditoriaDto extends PaginacionDto {

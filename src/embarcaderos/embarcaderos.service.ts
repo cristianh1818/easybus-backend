@@ -85,10 +85,12 @@ export class EmbarcaderosService {
     const actual = await this.buscar(id);
     const usos = await this.asignaciones.countBy({ embarcaderoId: id });
     if (usos > 0) {
-      throw new ConflictException(
-        `El embarcadero está asignado a ${usos} sentido(s) de ruta. ` +
+      throw new ConflictException({
+        code: 'EMBARCADERO_EN_USO',
+        message:
+          `El embarcadero está asignado a ${usos} sentido(s) de ruta. ` +
           'Quítelo de esas secuencias o cambie su estado a "inactivo".',
-      );
+      });
     }
     await this.repo.delete(id);
     await this.auditoria.registrar({

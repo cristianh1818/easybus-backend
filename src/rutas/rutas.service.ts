@@ -69,7 +69,7 @@ export class RutasService {
   async crear(dto: CrearRutaDto, usuarioId: string) {
     const codigo = dto.codigo.toUpperCase();
     if (await this.rutas.existsBy({ codigo })) {
-      throw new ConflictException(`Ya existe una ruta con el código ${codigo}`);
+      throw new ConflictException({ code: 'CODIGO_DUPLICADO', message: `Ya existe una ruta con el código ${codigo}` });
     }
     const ruta = await this.rutas.save(this.rutas.create({ ...dto, codigo }));
     await this.auditoria.registrar({
@@ -89,7 +89,10 @@ export class RutasService {
     if (dto.codigo) {
       dto.codigo = dto.codigo.toUpperCase();
       if (dto.codigo !== ruta.codigo && (await this.rutas.existsBy({ codigo: dto.codigo }))) {
-        throw new ConflictException(`Ya existe una ruta con el código ${dto.codigo}`);
+        throw new ConflictException({
+          code: 'CODIGO_DUPLICADO',
+          message: `Ya existe una ruta con el código ${dto.codigo}`,
+        });
       }
     }
     Object.assign(ruta, dto);

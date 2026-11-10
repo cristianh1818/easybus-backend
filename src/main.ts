@@ -2,7 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
-import { DbExceptionFilter } from './common/filters/db-exception.filter.js';
+import { ErroresFilter } from './common/errores/errores.filter.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -25,8 +25,9 @@ async function bootstrap() {
     }),
   );
 
-  // Convierte errores de PostgreSQL (duplicados, relaciones) en respuestas 400/409 claras
-  app.useGlobalFilters(new DbExceptionFilter());
+  // Todas las respuestas de error con el mismo formato: { statusCode, code, message }
+  // (incluye validaciones, autenticación, límite de peticiones y errores de PostgreSQL)
+  app.useGlobalFilters(new ErroresFilter());
 
   // Documentación interactiva en /api/docs (solo desarrollo y pruebas, sección 9.1)
   if (process.env.SWAGGER_ENABLED !== 'false') {
@@ -60,6 +61,7 @@ async function bootstrap() {
       .addTag('Admin · Horarios')
       .addTag('Admin · Festivos')
       .addTag('Admin · Avisos')
+      .addTag('Admin · Embarcaciones')
       .addTag('Admin · Reportes')
       .addTag('Admin · Auditoría')
       .addTag('Admin · Usuarios')
