@@ -46,20 +46,62 @@ export function tipoDiaPara(diaSemana: number, esFestivo: boolean): TipoDia {
   return TipoDia.LABORAL;
 }
 
+const MINUTOS_DIA = 24 * 60;
 const aMinutos = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
-// Primera hora de la lista que sea igual o posterior al momento actual.
-// Una salida "en este mismo minuto" todavía se muestra (0 minutos restantes).
+// Minutos desde la medianoche -> "HH:MM" (1460 -> "00:20")
+export function formatoHoraMinutos(minutos: number): string {
+  const m = ((minutos % MINUTOS_DIA) + MINUTOS_DIA) % MINUTOS_DIA;
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+export interface ProximoPaso {
+  salidaOrigen: string; // hora de zarpe en el primer embarcadero
+  horaPaso: string; // hora estimada en el embarcadero consultado
+  minutosRestantes: number;
+  pasaDespuesDeMedianoche: boolean; // zarpó hoy, pero llega después de las 00:00
+  salidaDelDiaAnterior: boolean; // zarpó ayer antes de medianoche y llega hoy de madrugada
+}
+
+// Próximo paso por un embarcadero que está a "minutosDesdeOrigen" del origen.
+// Hora de paso = hora de salida en el origen + minutosDesdeOrigen.
+// Considera las salidas de ayer que, por la duración del recorrido, pasan hoy después de medianoche.
+// Un paso "en este mismo minuto" todavía se muestra (0 minutos restantes).
+export function buscarProximoPaso(
+  horasHoy: string[],
+  horasAyer: string[],
+  minutosDesdeOrigen: number,
+  minutosAhora: number,
+): ProximoPaso | null {
+  const candidatos = [
+    ...horasAyer.map((h) => ({ h, paso: aMinutos(h) + minutosDesdeOrigen - MINUTOS_DIA, ayer: true })),
+    ...horasHoy.map((h) => ({ h, paso: aMinutos(h) + minutosDesdeOrigen, ayer: false })),
+  ]
+    .filter((c) => c.paso >= minutosAhora)
+    .sort((a, b) => a.paso - b.paso);
+
+  const c = candidatos[0];
+  if (!c) return null;
+  return {
+    salidaOrigen: c.h,
+    horaPaso: formatoHoraMinutos(c.paso),
+    minutosRestantes: c.paso - minutosAhora,
+    pasaDespuesDeMedianoche: c.paso >= MINUTOS_DIA,
+    salidaDelDiaAnterior: c.ayer,
+  };
+}
+
+// Caso particular: el embarcadero de origen (0 minutos) y solo las salidas de hoy
 export function buscarProximaSalida(
   horasOrdenadas: string[],
   minutosAhora: number,
 ): { hora: string; minutosRestantes: number } | null {
-  for (const hora of horasOrdenadas) {
-    const diferencia = aMinutos(hora) - minutosAhora;
-    if (diferencia >= 0) return { hora, minutosRestantes: diferencia };
-  }
-  return null;
+  const p = buscarProximoPaso(horasOrdenadas, [], 0, minutosAhora);
+  return p ? { hora: p.horaPaso, minutosRestantes: p.minutosRestantes } : null;
 }
+
+// Hora en un embarcadero intermedio para una salida del origen ("06:00" + 21 -> "06:21")
+export const sumarMinutos = (hhmm: string, minutos: number) => formatoHoraMinutos(aMinutos(hhmm) + minutos);
 
 // Colombia no tiene horario de verano: siempre es UTC-5.
 export function isoBogota(instante: Date): string {

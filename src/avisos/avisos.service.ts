@@ -25,10 +25,9 @@ import { instantanea } from '../common/utils/instantanea.js';
 
 const ENTIDAD = 'avisos_servicio';
 
-// Condiciones de vigencia en SQL (now() es el reloj de PostgreSQL, en UTC)
-const SQL_VIGENTE = 'a.vigente_desde <= now() AND (a.vigente_hasta IS NULL OR a.vigente_hasta > now())';
+// Condiciones de vigencia en SQL para los filtros del administrador (now() = reloj de PostgreSQL)
 const SQL_VIGENCIA: Record<VigenciaAviso, string> = {
-  [VigenciaAviso.VIGENTE]: SQL_VIGENTE,
+  [VigenciaAviso.VIGENTE]: 'a.vigente_desde <= now() AND (a.vigente_hasta IS NULL OR a.vigente_hasta > now())',
   [VigenciaAviso.PROGRAMADO]: 'a.vigente_desde > now()',
   [VigenciaAviso.VENCIDO]: 'a.vigente_hasta IS NOT NULL AND a.vigente_hasta <= now()',
 };
@@ -51,10 +50,13 @@ export class AvisosService {
 
   // ---------- Público ----------
 
-  // Avisos vigentes ahora, del más importante al menos importante (suspendido primero).
+  // Avisos vigentes en un momento (por defecto ahora), del más importante al menos importante.
   // Con rutaId / embarcaderoId devuelve solo los que afectan a esa ruta o embarcadero.
-  async vigentes(filtro: FiltroAvisosPublicoDto = {}) {
-    const qb = this.consulta().where(SQL_VIGENTE);
+  async vigentes(filtro: FiltroAvisosPublicoDto = {}, ahora: Date = new Date()) {
+    const qb = this.consulta().where(
+      'a.vigente_desde <= :ahora AND (a.vigente_hasta IS NULL OR a.vigente_hasta > :ahora)',
+      { ahora },
+    );
     const { rutaId, embarcaderoId } = filtro;
 
     if (rutaId && embarcaderoId) {
@@ -80,7 +82,6 @@ export class AvisosService {
       );
     }
 
-    const ahora = new Date();
     return (await qb.getMany()).map((a) => formatearAviso(a, ahora));
   }
 

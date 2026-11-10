@@ -202,7 +202,7 @@ se hace agregando campos de modo/tipo a estas mismas tablas, no creando tablas p
 | GET | `/rutas` | Rutas activas | RF-01 |
 | GET | `/rutas/{id}` | Detalle con sentidos, trazado GeoJSON y embarcaderos en orden | RF-02/03/04 |
 | GET | `/rutas/{id}/horarios?sentido=&tipoDia=` | Horarios por sentido y tipo de día | RF-05 |
-| GET | `/rutas/{id}/proxima-salida?sentido=&momento=` | Próxima salida (America/Bogota) | RF-06 |
+| GET | `/rutas/{id}/proxima-salida?sentido=&desde=&momento=` | Próxima salida desde el origen o desde un embarcadero (America/Bogota), con avisos | RF-06 |
 | GET | `/embarcaderos?tipo=` | Embarcaderos en servicio (activos y cerrados temporalmente) | — |
 | GET | `/embarcaderos/{id}` | Detalle + rutas activas que lo atienden (parada N de M, minutos desde el origen) | RF-04 |
 | GET | `/embarcaderos/cercanos?lat=&lng=&radio=&limite=` | Embarcaderos a menos de `radio` metros (50–5000, por defecto 500), del más cercano al más lejano | RF-09 |
@@ -265,12 +265,22 @@ Para el río son clave: si el Sinú crece o baja demasiado, el servicio se suspe
 
 1. Se toma la hora actual en **America/Bogota**.
 2. Tipo de día: **festivo o domingo** → `domingo_festivo`; **sábado** → `sabado`; otro → `laboral`.
-3. Se busca la primera salida igual o posterior a la hora actual.
-4. `status`: `NEXT_DEPARTURE` (con hora y minutos restantes), `NO_MORE_DEPARTURES_TODAY`
-   (incluye la primera salida de mañana) u `OUT_OF_SERVICE` (ruta inactiva).
-5. La respuesta siempre aclara que es una **estimación según el horario programado**.
+3. Orden de decisión del `status`:
+   1. Ruta inactiva → `OUT_OF_SERVICE`.
+   2. Aviso **suspendido** vigente para el servicio, la ruta o el embarcadero → `SUSPENDED`, con
+      `reason` (motivo), `message`, `detail` y `suspendedUntil`.
+   3. Embarcadero cerrado temporalmente → `OUT_OF_SERVICE`.
+   4. `NEXT_DEPARTURE` (hora y minutos restantes) o `NO_MORE_DEPARTURES_TODAY` (con la primera de mañana).
+4. **Desde un embarcadero** (`desde=<id>`): hora de paso = salida del origen + `minutos_desde_origen`.
+   La respuesta trae `departureTime` (en ese embarcadero), `originDepartureTime` y `fromStop`. Se tiene en
+   cuenta la medianoche: una salida de 23:50 con 30 min de recorrido pasa a las 00:20 (`crossesMidnight`),
+   y a las 00:05 el próximo paso puede venir de una salida del día anterior.
+5. `alerts` trae siempre los avisos vigentes que afectan a la ruta o al embarcadero consultado, y
+   `GET /rutas/{id}` incluye `avisos` al inicio para mostrarlos antes que los horarios.
+6. La respuesta siempre aclara que es una **estimación según el horario programado**.
 
-El parámetro opcional `momento` (ej. `2026-11-02T07:10`) permite simular otra fecha/hora para pruebas.
+El parámetro opcional `momento` (ej. `2026-11-02T07:10`) simula otra fecha/hora; los avisos también se
+evalúan en ese momento.
 
 ## 8. Seguridad implementada
 

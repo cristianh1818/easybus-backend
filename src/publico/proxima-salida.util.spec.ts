@@ -1,5 +1,7 @@
 import {
   buscarProximaSalida,
+  buscarProximoPaso,
+  formatoHoraMinutos,
   interpretarMomento,
   isoBogota,
   momentoEnBogota,
@@ -57,6 +59,59 @@ describe('buscarProximaSalida', () => {
   });
   it('sin horarios devuelve null', () => {
     expect(buscarProximaSalida([], 600)).toBeNull();
+  });
+});
+
+describe('buscarProximoPaso (embarcadero intermedio y medianoche)', () => {
+  const salidas = ['06:00', '06:30'];
+
+  it('embarcadero intermedio: salida del origen + minutos desde el origen', () => {
+    // A 21 min del origen: pasos a las 06:21 y 06:51
+    expect(buscarProximoPaso(salidas, [], 21, 6 * 60 + 10)).toMatchObject({
+      salidaOrigen: '06:00',
+      horaPaso: '06:21',
+      minutosRestantes: 11,
+    });
+  });
+  it('justo a la hora de paso: faltan 0 minutos', () => {
+    expect(buscarProximoPaso(salidas, [], 21, 6 * 60 + 21)?.minutosRestantes).toBe(0);
+  });
+  it('ya pasó la salida del origen, pero la embarcación aún no llega al intermedio', () => {
+    // 06:35: ya salió la de 06:30 del origen, y pasa por el intermedio a las 06:51
+    expect(buscarProximoPaso(salidas, [], 21, 6 * 60 + 35)).toMatchObject({
+      salidaOrigen: '06:30',
+      horaPaso: '06:51',
+    });
+  });
+  it('después del último paso devuelve null', () => {
+    expect(buscarProximoPaso(salidas, [], 21, 6 * 60 + 52)).toBeNull();
+  });
+  it('medianoche: zarpa 23:50 y pasa por el embarcadero a las 00:20', () => {
+    expect(buscarProximoPaso(['23:50'], [], 30, 23 * 60 + 55)).toMatchObject({
+      horaPaso: '00:20',
+      minutosRestantes: 25,
+      pasaDespuesDeMedianoche: true,
+      salidaDelDiaAnterior: false,
+    });
+  });
+  it('madrugada: a las 00:05 el próximo paso viene de la salida de ayer a las 23:50', () => {
+    expect(buscarProximoPaso(['05:30'], ['23:50'], 30, 5)).toMatchObject({
+      salidaOrigen: '23:50',
+      horaPaso: '00:20',
+      minutosRestantes: 15,
+      salidaDelDiaAnterior: true,
+    });
+  });
+  it('las salidas de ayer que ya pasaron no cuentan', () => {
+    // Ayer 22:00 + 30 = 22:30 de ayer: a las 00:05 ya no aplica
+    expect(buscarProximoPaso(['05:30'], ['22:00'], 30, 5)?.salidaOrigen).toBe('05:30');
+  });
+});
+
+describe('formatoHoraMinutos', () => {
+  it('da la vuelta después de medianoche', () => {
+    expect(formatoHoraMinutos(1460)).toBe('00:20');
+    expect(formatoHoraMinutos(6 * 60 + 21)).toBe('06:21');
   });
 });
 
