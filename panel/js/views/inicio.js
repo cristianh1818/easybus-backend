@@ -28,6 +28,15 @@ export default {
         ${cifra(resumen.embarcaderosActivos, 'Embarcaderos activos', '#/embarcaderos', `${resumen.embarcaderos} en total`)}
         ${cifra(resumen.horarios, 'Salidas programadas', '#/horarios', 'Todas las rutas, sentidos y tipos de día')}
         ${cifra(resumen.festivosProximos, 'Festivos próximos', '#/festivos', 'Aplican horario de domingo/festivo')}
+        ${cifra(
+          resumen.avisosVigentes,
+          'Avisos vigentes',
+          '#/avisos',
+          resumen.suspensionesVigentes > 0
+            ? `${resumen.suspensionesVigentes} suspensión(es) en curso`
+            : 'Los ven los pasajeros ahora',
+          resumen.suspensionesVigentes > 0,
+        )}
         ${cifra(resumen.reportesPendientes, 'Reportes pendientes', '#/reportes', 'Enviados por usuarios', resumen.reportesPendientes > 0)}
         ${cifra(resumen.cambiosUltimos7Dias, 'Cambios en 7 días', '#/auditoria', 'Registrados en la auditoría')}
       </div>

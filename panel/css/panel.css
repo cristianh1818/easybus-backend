@@ -441,6 +441,26 @@ input:focus, select:focus, textarea:focus {
   background: var(--alerta-fondo); color: var(--alerta); font-size: 0.92rem; border: 1px solid #f0d58a;
 }
 
+/* ---------- Avisos de servicio ---------- */
+.etiqueta.aviso-suspendido { background: #fdecea; color: #b71c1c; }
+.etiqueta.aviso-retraso { background: #fff4d6; color: #8a5a00; }
+.etiqueta.aviso-cambio_horario { background: #e8eefc; color: #1e40af; }
+.etiqueta.aviso-informativo { background: var(--rio-50); color: var(--rio-700); }
+
+/* Franja de aviso que ve el pasajero, antes de cualquier horario */
+.banner-aviso {
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+  border-left: 6px solid; display: grid; gap: 2px;
+}
+.banner-aviso strong { font-size: 1.02rem; }
+.banner-aviso .meta { font-size: 0.85rem; opacity: 0.85; }
+.banner-aviso.suspendido { background: #fdecea; border-color: #c62828; color: #7f1d1d; }
+.banner-aviso.retraso { background: #fff4d6; border-color: #e0a100; color: #6b4500; }
+.banner-aviso.cambio_horario { background: #e8eefc; border-color: #2a64b8; color: #1e3a8a; }
+.banner-aviso.informativo { background: var(--rio-50); border-color: var(--rio-500); color: var(--rio-800); }
+
+.proxima.suspendida { background: linear-gradient(135deg, #b71c1c, #7f1d1d); }
+
 /* ---------- Pantalla de sección en construcción ---------- */
 .pronto { text-align: center; padding: 60px 20px; color: var(--texto-suave); }
 .pronto strong { display: block; font-size: 1.2rem; color: var(--rio-800); margin-bottom: 8px; }

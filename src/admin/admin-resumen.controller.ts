@@ -22,6 +22,10 @@ export class AdminResumenController {
         (SELECT count(*) FROM horarios)::int                             AS "horarios",
         (SELECT count(*) FROM dias_festivos WHERE fecha >= current_date)::int AS "festivosProximos",
         (SELECT count(*) FROM reportes WHERE estado = 'pendiente')::int  AS "reportesPendientes",
+        (SELECT count(*) FROM avisos_servicio
+           WHERE vigente_desde <= now() AND (vigente_hasta IS NULL OR vigente_hasta > now()))::int AS "avisosVigentes",
+        (SELECT count(*) FROM avisos_servicio WHERE tipo = 'suspendido'
+           AND vigente_desde <= now() AND (vigente_hasta IS NULL OR vigente_hasta > now()))::int AS "suspensionesVigentes",
         (SELECT count(*) FROM auditoria
            WHERE creado_en >= now() - interval '7 days')::int            AS "cambiosUltimos7Dias"
     `);

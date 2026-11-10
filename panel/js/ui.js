@@ -44,6 +44,23 @@ const formatoFechaLarga = new Intl.DateTimeFormat('es-CO', {
 });
 export const fechaLarga = (aaaammdd) => formatoFechaLarga.format(new Date(`${aaaammdd}T00:00:00Z`));
 
+// Fecha ISO -> "AAAA-MM-DDTHH:MM" en hora de Montería, para un <input type="datetime-local">.
+// La API interpreta una fecha sin zona como hora de Montería, así que el valor ida y vuelta es el mismo.
+const partesBogota = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Bogota',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+export function aInputLocal(iso) {
+  if (!iso) return '';
+  const p = Object.fromEntries(partesBogota.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
 // Crea un elemento a partir de HTML
 export function html(cadena) {
   const t = document.createElement('template');
@@ -89,6 +106,9 @@ export const TEXTOS = {
   tipoEmbarcadero: { embarcadero: 'Embarcadero', parada_bus: 'Parada de bus' },
   margen: { izquierda: 'Margen izquierda', derecha: 'Margen derecha' },
   modo: { fluvial: 'Fluvial', bus: 'Bus' },
+  tipoAviso: { suspendido: 'Suspendido', retraso: 'Retraso', cambio_horario: 'Cambio de horario', informativo: 'Informativo' },
+  motivoAviso: { nivel_rio: 'Nivel del río', clima: 'Clima', mantenimiento: 'Mantenimiento', otro: 'Otro' },
+  vigenciaAviso: { programado: 'Programado', vigente: 'Vigente', vencido: 'Vencido' },
   estadoReporte: { pendiente: 'Pendiente', en_revision: 'En revisión', resuelto: 'Resuelto', descartado: 'Descartado' },
   tipoReporte: { ruta: 'Ruta', embarcadero: 'Embarcadero', horario: 'Horario', otro: 'Otro' },
   accion: { crear: 'Crear', actualizar: 'Actualizar', eliminar: 'Eliminar' },

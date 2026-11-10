@@ -305,9 +305,10 @@ y solo consume la API REST, igual que lo hará el panel Next.js definitivo.
 | Rutas | Crear/editar/activar; en cada ruta: sentidos ida/vuelta, embarcaderos en orden (subir/bajar) y trazado dibujado con clics |
 | Horarios | Por ruta, sentido y tipo de día: agregar/quitar una hora o reemplazar la lista (con generador "cada N min") |
 | Festivos | Lista por año, agregar y quitar |
+| Avisos de servicio | Publicar (tipo, motivo, ruta/embarcadero, vigencia), editar, cerrar (vigentes) y eliminar (programados); filtro por vigencia y tipo |
 | Reportes | Filtro por estado y cambio de estado con respuesta del administrador |
 | Auditoría | Historial con filtros; "Ver cambios" muestra campo por campo el antes y el después |
-| Vista pasajero | Usa **solo** endpoints públicos: rutas activas, mapa con trazado y próxima salida |
+| Vista pasajero | Usa **solo** endpoints públicos: rutas activas, mapa con trazado, avisos antes que los horarios, próxima salida desde cualquier embarcadero y tarjeta de suspensión |
 
 ```
 panel/
