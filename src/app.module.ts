@@ -33,7 +33,12 @@ import { PublicoModule } from './publico/publico.module.js';
         password: config.get<string>('DB_PASSWORD'),
         // Registra automáticamente las entidades declaradas en cada módulo
         autoLoadEntities: true,
-        synchronize: config.get('DB_SYNC') === 'true',
+        // Las tablas NUNCA se ajustan solas: cada cambio es una migración versionada
+        // en src/database/migrations. Al arrancar se aplican las que falten.
+        synchronize: false,
+        migrations: [join(import.meta.dirname, 'database', 'migrations', '*.js')],
+        migrationsTableName: 'migraciones',
+        migrationsRun: true,
       }),
     }),
 

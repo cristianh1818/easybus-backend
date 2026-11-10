@@ -9,6 +9,9 @@ coverage/
 .env.*
 !.env.example
 
+# Respaldos de la base de datos (contienen datos reales; se guardan fuera del repositorio)
+backups/
+
 # Otros
 *.log
 *.tsbuildinfo

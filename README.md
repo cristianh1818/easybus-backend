@@ -75,6 +75,11 @@ npm run start:dev
 | `npm run start:dev` | Arranca la API y la reinicia al guardar cambios |
 | `npm run seed` | (Re)carga rutas, embarcaderos, horarios y festivos de ejemplo |
 | `npm run seed:reset` | Borra reportes, auditoría y todas las rutas/embarcaderos no oficiales, y recarga los de ejemplo (demo limpia) |
+| `npm run migration:show` | Ver qué migraciones están aplicadas (`[X]`) y cuáles faltan (`[ ]`) |
+| `npm run migration:run` | Aplicar las migraciones pendientes (la API también lo hace sola al arrancar) |
+| `npm run migration:revert` | Deshacer la última migración aplicada |
+| `npm run migration:generate -- src/database/migrations/NombreDelCambio` | Crear una migración comparando las entidades con la base |
+| `npm run migration:check` | Verificar que la base coincide exactamente con las entidades (sin cambios pendientes) |
 | `npm test` | Pruebas unitarias (cálculo de próxima salida y tipo de día) |
 | `npm run test:e2e` | Prueba de integración del endpoint `/health` (requiere la BD) |
 | `docker compose ps` | Ver si la base de datos está corriendo |
@@ -100,6 +105,7 @@ src/
 ├── main.ts                 Arranque: prefijo /api/v1, validación, CORS, Swagger
 ├── app.module.ts           Módulo raíz: configuración, conexión a BD, límite de peticiones
 ├── common/                 Enums, filtro de errores de BD, validadores y utilidades
+├── database/               Conexión para el CLI de TypeORM y migraciones versionadas
 ├── auth/                   Login/registro, JWT, guards de rol, decorador @Auth()
 ├── usuarios/               Usuarios y favoritos; crea el administrador inicial
 ├── embarcaderos/           CRUD de embarcaderos (puntos geográficos)
@@ -137,6 +143,33 @@ dias_festivos     reportes (→ usuario, ruta, embarcadero)     auditoria (→ u
 - El trazado, la secuencia y los horarios pertenecen al **sentido**, no a la ruta.
 - Borrar una ruta borra en cascada sus sentidos, secuencias y horarios; un embarcadero asignado
   a una ruta no se puede borrar.
+
+### Migraciones de base de datos
+
+Las tablas **no se crean ni modifican solas** (`synchronize` está desactivado). Cada cambio del esquema
+es una **migración versionada** en `src/database/migrations/`: un archivo con fecha que contiene el SQL
+para aplicar el cambio (`up`) y para deshacerlo (`down`). La API aplica las pendientes al arrancar y
+lleva el registro en la tabla `migraciones`.
+
+Flujo para cambiar el modelo:
+1. Modificar la entidad (`*.entity.ts`).
+2. `npm run migration:generate -- src/database/migrations/DescripcionDelCambio` y **revisar el SQL generado**
+   (si hay que convertir datos, se completa a mano).
+3. `npm run migration:run` y `npm run migration:check` para confirmar que la base quedó igual al código.
+4. Antes de cambios delicados, respaldo: `docker exec easybus-db pg_dump -U easybus -d easybus -Fc -f /tmp/r.dump`
+   y `docker cp easybus-db:/tmp/r.dump backups/` (la carpeta `backups/` no se sube a Git).
+
+La primera migración (`EsquemaInicial`) reproduce las 10 tablas originales. En la base de desarrollo
+que ya existía se registró como aplicada con `migration:run --fake`, sin tocar los datos.
+
+### Decisión de nombres: en español
+
+La guía de arquitectura de EASYBUS propone nombres en inglés (`/stops`, `/service-alerts`, `vessels`),
+pero indica adaptarse a la API existente sin renombrar a la fuerza. Se decidió **mantener el español**
+en tablas, módulos y endpoints: `embarcaderos`, `rutas`, `horarios`, `avisos`, `/api/v1/embarcaderos`,
+`/api/v1/avisos`. Se conservan en inglés solo los valores definidos por el documento de requerimientos
+para la respuesta de próxima salida (`NEXT_DEPARTURE`, `WEEKDAY`…). La preparación para buses (fase 2)
+se hace agregando campos de modo/tipo a estas mismas tablas, no creando tablas paralelas.
 
 ## 7. Endpoints (prefijo `/api/v1`)
 
@@ -233,7 +266,6 @@ panel/
 - Importación CSV / GeoJSON (RF-19).
 - Búsquedas por cercanía con PostGIS: embarcaderos cercanos y rutas por origen/destino (RF-07, RF-09).
 - Favoritos del pasajero (RF-11) — la tabla ya existe.
-- Migraciones de TypeORM en lugar de `synchronize` para producción.
 - Validar datos reales con el operador del Businú.
 
 ---
