@@ -31,7 +31,7 @@ export class EmbarcaderosService {
 
   async listar(filtro: FiltroEmbarcaderosDto) {
     const lista = await this.repo.find({
-      where: filtro.activo === undefined ? {} : { activo: filtro.activo },
+      where: filtro.estado ? { estado: filtro.estado } : {},
       order: { nombre: 'ASC' },
     });
     return lista.map(formatearEmbarcadero);
@@ -87,7 +87,7 @@ export class EmbarcaderosService {
     if (usos > 0) {
       throw new ConflictException(
         `El embarcadero está asignado a ${usos} sentido(s) de ruta. ` +
-          'Quítelo de esas secuencias o desactívelo (activo = false).',
+          'Quítelo de esas secuencias o cambie su estado a "inactivo".',
       );
     }
     await this.repo.delete(id);

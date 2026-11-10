@@ -2,10 +2,17 @@
 // Al hacer clic en el mapa se llenan la latitud y la longitud del formulario.
 
 import { get, post, patch, del } from '../api.js';
-import { esc, toast, mostrarError, conCarga } from '../ui.js';
-import { crearMapa, punto, encuadrar, redondear, COLORES } from '../mapa.js';
+import { esc, toast, mostrarError, conCarga, TEXTOS } from '../ui.js';
+import { crearMapa, punto, encuadrar, redondear, colorEstado, COLORES } from '../mapa.js';
 
 let estado = null; // datos de la vista mientras está abierta
+
+const CAMPOS_SI_NO = ['tieneRampa', 'tieneTecho', 'tieneIluminacion'];
+const opciones = (textos) =>
+  Object.entries(textos).map(([valor, texto]) => `<option value="${valor}">${esc(texto)}</option>`).join('');
+const CLASE_ESTADO = { activo: 'ok', cerrado_temporal: 'aviso', inactivo: 'mal' };
+const etiquetaEstado = (e) =>
+  `<span class="etiqueta ${CLASE_ESTADO[e] ?? ''}">${esc(TEXTOS.estadoEmbarcadero[e] ?? e)}</span>`;
 
 export default {
   async render(contenedor) {
@@ -22,6 +29,7 @@ export default {
           <div id="mapa-embarcaderos" class="mapa mapa-click"></div>
           <div class="mapa-leyenda">
             <span style="--c:${COLORES.activo}">Activo</span>
+            <span style="--c:${COLORES.cerrado}">Cerrado temporalmente</span>
             <span style="--c:${COLORES.inactivo}">Inactivo</span>
             <span style="--c:${COLORES.seleccion}">Posición del formulario</span>
           </div>
@@ -47,7 +55,40 @@ export default {
                 <input name="longitud" type="number" step="any" required placeholder="-75.8851" />
               </label>
             </div>
-            <label class="check"><input type="checkbox" name="activo" checked /> Activo</label>
+            <div class="form-fila">
+              <label>Estado
+                <select name="estado">
+                  ${opciones(TEXTOS.estadoEmbarcadero)}
+                </select>
+              </label>
+              <label>Margen del río
+                <select name="margen">
+                  <option value="">Sin dato</option>
+                  ${opciones(TEXTOS.margen)}
+                </select>
+              </label>
+            </div>
+            <div class="form-fila" style="grid-template-columns:1fr 1fr 1fr">
+              ${['tieneRampa:Rampa', 'tieneTecho:Techo', 'tieneIluminacion:Iluminación']
+                .map((x) => x.split(':'))
+                .map(
+                  ([campo, texto]) => `
+                <label>${texto}
+                  <select name="${campo}">
+                    <option value="">Sin dato</option><option value="true">Sí</option><option value="false">No</option>
+                  </select>
+                </label>`,
+                )
+                .join('')}
+            </div>
+            <div class="form-fila">
+              <label>Tipo
+                <select name="tipo">${opciones(TEXTOS.tipoEmbarcadero)}</select>
+              </label>
+              <label>Foto <span class="ayuda">(URL, opcional)</span>
+                <input name="fotoUrl" type="url" maxlength="500" placeholder="https://…" />
+              </label>
+            </div>
             <label class="check"><input type="checkbox" name="esOficial" /> Dato oficial (verificado con el operador)</label>
             <div class="fila">
               <button type="submit" class="btn btn-primario" id="btn-guardar">Crear embarcadero</button>
@@ -139,7 +180,7 @@ function pintarTabla() {
         <td class="texto-suave">${esc(e.referencia ?? '—')}</td>
         <td class="num">${e.latitud.toFixed(5)}</td>
         <td class="num">${e.longitud.toFixed(5)}</td>
-        <td>${e.activo ? '<span class="etiqueta ok">Activo</span>' : '<span class="etiqueta mal">Inactivo</span>'}</td>
+        <td>${etiquetaEstado(e.estado)}</td>
         <td>${e.esOficial ? '<span class="etiqueta ok">Sí</span>' : '<span class="etiqueta aviso">No oficial</span>'}</td>
         <td class="acciones">
           <button class="btn btn-secundario btn-chico" data-accion="editar" data-id="${e.id}">Editar</button>
@@ -157,7 +198,7 @@ function pintarMapa(encuadrarTodo = false) {
 
   for (const e of estado.lista) {
     const capa = punto([e.latitud, e.longitud], {
-      color: e.activo ? COLORES.activo : COLORES.inactivo,
+      color: colorEstado(e.estado),
       radio: e.id === estado.editandoId ? 11 : 8,
     })
       .bindTooltip(esc(e.nombre))
@@ -189,7 +230,11 @@ function editar(emb) {
   form.referencia.value = emb.referencia ?? '';
   form.latitud.value = emb.latitud;
   form.longitud.value = emb.longitud;
-  form.activo.checked = emb.activo;
+  form.estado.value = emb.estado;
+  form.tipo.value = emb.tipo;
+  form.margen.value = emb.margen ?? '';
+  for (const campo of CAMPOS_SI_NO) form[campo].value = emb[campo] === null ? '' : String(emb[campo]);
+  form.fotoUrl.value = emb.fotoUrl ?? '';
   form.esOficial.checked = emb.esOficial;
 
   estado.contenedor.querySelector('#titulo-form').textContent = `Editar: ${emb.nombre}`;
@@ -206,7 +251,6 @@ function editar(emb) {
 function limpiarFormulario() {
   const form = estado.contenedor.querySelector('#form-embarcadero');
   form.reset();
-  form.activo.checked = true;
   estado.editandoId = null;
   estado.contenedor.querySelector('#titulo-form').textContent = 'Nuevo embarcadero';
   estado.contenedor.querySelector('#btn-guardar').textContent = 'Crear embarcadero';
@@ -232,9 +276,14 @@ async function guardar(form) {
     referencia: form.referencia.value.trim() || undefined,
     latitud,
     longitud,
-    activo: form.activo.checked,
+    estado: form.estado.value,
+    tipo: form.tipo.value,
+    margen: form.margen.value || null,
+    fotoUrl: form.fotoUrl.value.trim() || null,
     esOficial: form.esOficial.checked,
   };
+  // Accesibilidad: "" = sin dato (null), "true"/"false" = sí/no
+  for (const campo of CAMPOS_SI_NO) datos[campo] = form[campo].value === '' ? null : form[campo].value === 'true';
 
   const boton = estado.contenedor.querySelector('#btn-guardar');
   try {

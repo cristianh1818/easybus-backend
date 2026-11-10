@@ -1,11 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsEnum, IsOptional } from 'class-validator';
+import { EstadoEmbarcadero } from '../../common/enums.js';
 
 export class FiltroEmbarcaderosDto {
-  @ApiPropertyOptional({ description: 'Filtrar por activos (true) o inactivos (false)' })
+  @ApiPropertyOptional({ enum: EstadoEmbarcadero, description: 'Filtrar por estado' })
   @IsOptional()
-  @Transform(({ value }) => (value === 'true' ? true : value === 'false' ? false : value))
-  @IsBoolean()
-  activo?: boolean;
+  @IsEnum(EstadoEmbarcadero)
+  estado?: EstadoEmbarcadero;
 }

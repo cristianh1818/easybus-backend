@@ -34,11 +34,12 @@ import { PublicoModule } from './publico/publico.module.js';
         // Registra automáticamente las entidades declaradas en cada módulo
         autoLoadEntities: true,
         // Las tablas NUNCA se ajustan solas: cada cambio es una migración versionada
-        // en src/database/migrations. Al arrancar se aplican las que falten.
+        // en src/database/migrations. Con DB_MIGRATIONS_RUN=true (por defecto) se aplican
+        // al arrancar las que falten; con false, solo con "npm run migration:run".
         synchronize: false,
         migrations: [join(import.meta.dirname, 'database', 'migrations', '*.js')],
         migrationsTableName: 'migraciones',
-        migrationsRun: true,
+        migrationsRun: config.get('DB_MIGRATIONS_RUN', 'true') !== 'false',
       }),
     }),
 

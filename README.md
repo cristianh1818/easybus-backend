@@ -144,12 +144,34 @@ dias_festivos     reportes (→ usuario, ruta, embarcadero)     auditoria (→ u
 - Borrar una ruta borra en cascada sus sentidos, secuencias y horarios; un embarcadero asignado
   a una ruta no se puede borrar.
 
+### Embarcaderos y tiempos de la secuencia
+
+- **Embarcaderos**: `tipo` (embarcadero / parada de bus, para la fase 2), `margen` del río, `estado`
+  (`activo`, `cerrado_temporal`, `inactivo`; reemplazó al antiguo `activo` sí/no), accesibilidad
+  (`tiene_rampa`, `tiene_techo`, `tiene_iluminacion`: sí / no / sin dato) y `foto_url`.
+  Un embarcadero `inactivo` no se puede asignar a rutas; uno `cerrado_temporal` sí sigue en ellas.
+- **Rutas**: `modo` (`fluvial` en la fase 1; `bus` en la fase 2).
+- **Secuencia** (`ruta_embarcaderos`): `minutos_desde_origen` (minutos desde el zarpe en el primer
+  embarcadero, que siempre es 0) y `tiempo_estimado` (sí = calculado; no = tiempo real registrado).
+  Hora estimada de paso por un embarcadero = hora de salida + minutos_desde_origen.
+
+**Regla de estimación (regla B):** 10 minutos por km. Cada tramo entre embarcaderos consecutivos
+mide lo **mayor** entre la distancia a lo largo del trazado (`ST_LineLocatePoint` + `ST_LineSubstring`
++ `ST_Length` sobre geography) y la distancia en línea recta, para que un trazado que no pasa por un
+embarcadero no produzca tramos más cortos que la línea recta. Sin trazado se usa la línea recta.
+Los estimados se recalculan solos al guardar la secuencia o el trazado; los tiempos reales no se tocan
+y las estimaciones siguientes parten de ellos. El panel marca con ⚠️ los embarcaderos a más de
+**150 m** del trazado y los tiempos menores que el del embarcadero anterior.
+Código: `src/rutas/tiempos-estimados.ts`.
+
 ### Migraciones de base de datos
 
 Las tablas **no se crean ni modifican solas** (`synchronize` está desactivado). Cada cambio del esquema
 es una **migración versionada** en `src/database/migrations/`: un archivo con fecha que contiene el SQL
-para aplicar el cambio (`up`) y para deshacerlo (`down`). La API aplica las pendientes al arrancar y
-lleva el registro en la tabla `migraciones`.
+para aplicar el cambio (`up`) y para deshacerlo (`down`). Con `DB_MIGRATIONS_RUN=true` (por defecto)
+la API aplica las pendientes al arrancar; con `false` solo se aplican con `npm run migration:run`
+(útil mientras se escribe una migración nueva con `start:dev` abierto, y en producción). El registro
+queda en la tabla `migraciones`.
 
 Flujo para cambiar el modelo:
 1. Modificar la entidad (`*.entity.ts`).
@@ -196,6 +218,8 @@ se hace agregando campos de modo/tipo a estas mismas tablas, no creando tablas p
 | PUT/DELETE | `/admin/rutas/{id}/sentidos/{ida\|vuelta}` | Crear-editar / eliminar sentido | RF-15 |
 | PUT | `/admin/rutas/{id}/sentidos/{sentido}/trazado` | Registrar trazado GeoJSON | RF-17 |
 | PUT | `/admin/rutas/{id}/sentidos/{sentido}/embarcaderos` | Asignar embarcaderos en orden | RF-16 |
+| PATCH | `/admin/rutas/{id}/sentidos/{sentido}/embarcaderos/{embarcaderoId}` | Editar minutos desde el origen y si son estimados o reales | RF-16 |
+| POST | `/admin/rutas/{id}/sentidos/{sentido}/tiempos/recalcular` | Recalcular los tiempos estimados | RF-16 |
 | GET/POST | `/admin/rutas/{id}/sentidos/{sentido}/horarios` | Ver / agregar una hora | RF-18 |
 | PUT | `/admin/rutas/{id}/sentidos/{sentido}/horarios/{tipoDia}` | Cargar todas las horas de un tipo de día | RF-18 |
 | PATCH/DELETE | `/admin/horarios/{id}` | Editar / eliminar una hora | RF-18 |

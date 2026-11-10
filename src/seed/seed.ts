@@ -15,7 +15,8 @@ import { Horario } from '../horarios/entities/horario.entity.js';
 import { DiaFestivo } from '../horarios/entities/dia-festivo.entity.js';
 import { Reporte } from '../reportes/entities/reporte.entity.js';
 import { Auditoria } from '../auditoria/entities/auditoria.entity.js';
-import { EstadoRuta, TipoDia, TipoReporte } from '../common/enums.js';
+import { EstadoEmbarcadero, EstadoRuta, TipoDia, TipoReporte } from '../common/enums.js';
+import { recalcularTiemposEstimados } from '../rutas/tiempos-estimados.js';
 import { EMBARCADEROS, FESTIVOS_2026, RUTAS } from './datos-ejemplo.js';
 
 async function seed() {
@@ -55,7 +56,7 @@ async function seed() {
           nombre: e.nombre,
           referencia: e.referencia,
           ubicacion: { type: 'Point', coordinates: [e.longitud, e.latitud] },
-          activo: true,
+          estado: EstadoEmbarcadero.ACTIVO,
           esOficial: false,
         }),
       );
@@ -95,6 +96,8 @@ async function seed() {
             orden: i + 1,
           })),
         );
+        // Minutos desde el origen estimados por distancia (misma regla que la API)
+        await recalcularTiemposEstimados(m, sentido.id);
 
         for (const tipoDia of Object.values(TipoDia)) {
           const horas = s.horarios[tipoDia];

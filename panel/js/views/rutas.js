@@ -57,7 +57,7 @@ async function renderLista() {
         <label>Descripción <span class="ayuda">(opcional)</span>
           <textarea name="descripcion" rows="2" placeholder="Recorrido, observaciones…"></textarea>
         </label>
-        <div class="form-fila">
+        <div class="form-fila" style="grid-template-columns:1fr 1fr 1fr">
           <label>Color en el mapa
             <input name="color" type="color" value="#2a64b8" style="height:44px;padding:4px" />
           </label>
@@ -65,6 +65,11 @@ async function renderLista() {
             <select name="estado">
               <option value="activa">Activa</option>
               <option value="inactiva">Inactiva</option>
+            </select>
+          </label>
+          <label>Modo de transporte
+            <select name="modo">
+              ${Object.entries(TEXTOS.modo).map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}
             </select>
           </label>
         </div>
@@ -143,6 +148,7 @@ function editarRuta(r) {
   form.descripcion.value = r.descripcion ?? '';
   form.color.value = r.color ?? '#2a64b8';
   form.estado.value = r.estado;
+  form.modo.value = r.modo ?? 'fluvial';
   form.esOficial.checked = r.esOficial;
   estado.c.querySelector('#titulo-form-ruta').textContent = `Editar ruta ${r.codigo}`;
   estado.c.querySelector('#btn-guardar-ruta').textContent = 'Guardar cambios';
@@ -169,6 +175,7 @@ async function guardarRuta(form) {
     descripcion: form.descripcion.value.trim() || undefined,
     color: form.color.value,
     estado: form.estado.value,
+    modo: form.modo.value,
     esOficial: form.esOficial.checked,
   };
   if (!datos.codigo || !datos.nombre) return toast('Código y nombre son obligatorios.', 'error');
@@ -261,6 +268,7 @@ async function renderDetalle(id) {
 
         <section class="tarjeta" id="tarjeta-secuencia">
           <h3 class="tarjeta-titulo">Embarcaderos en orden</h3>
+          <p class="ayuda" id="ayuda-tiempos" style="margin:-6px 0 10px"></p>
           <ol class="lista-orden" id="lista-secuencia"></ol>
           <div class="fila" style="margin-bottom:12px">
             <select id="sel-agregar" style="flex:1;min-width:180px"></select>
@@ -269,6 +277,7 @@ async function renderDetalle(id) {
           <div class="fila">
             <button type="button" class="btn btn-primario" id="btn-guardar-secuencia">Guardar orden</button>
             <button type="button" class="btn btn-secundario" id="btn-invertir">Copiar inverso del otro sentido</button>
+            <button type="button" class="btn btn-secundario" id="btn-recalcular" title="10 min/km por el trazado; nunca menos que la línea recta. Los tiempos reales no se tocan.">Recalcular estimados</button>
           </div>
         </section>
       </div>
@@ -433,6 +442,49 @@ function conectarEventosDetalle() {
     }
   });
 
+  // --- Tiempos desde el origen: se guardan al cambiar cada campo ---
+  c.querySelector('#lista-secuencia').addEventListener('change', async (e) => {
+    const campo = e.target.closest('.inp-minutos, .chk-estimado');
+    if (!campo) return;
+    const cuerpo = campo.classList.contains('inp-minutos')
+      ? { minutosDesdeOrigen: Number(campo.value) }
+      : { tiempoEstimado: campo.checked };
+    if (cuerpo.minutosDesdeOrigen !== undefined && !(Number.isInteger(cuerpo.minutosDesdeOrigen) && cuerpo.minutosDesdeOrigen >= 0)) {
+      toast('Los minutos deben ser un número entero mayor o igual a 0.', 'error');
+      return pintarSecuencia();
+    }
+    try {
+      const s = await patch(
+        `/admin/rutas/${estado.ruta.id}/sentidos/${estado.sentido}/embarcaderos/${campo.dataset.id}`,
+        cuerpo,
+      );
+      actualizarSentidoEnRuta(s);
+      toast(
+        cuerpo.tiempoEstimado === true
+          ? 'Tiempo marcado como estimado y recalculado.'
+          : 'Tiempo guardado como real. Los estimados siguientes se recalcularon.',
+        'exito',
+      );
+    } catch (error) {
+      mostrarError(error);
+    }
+    pintarSecuencia();
+  });
+
+  c.querySelector('#btn-recalcular').addEventListener('click', async (e) => {
+    if (estado.sucioSecuencia) return toast('Primero guarda el orden de embarcaderos.', 'error');
+    try {
+      const s = await conCarga(e.currentTarget, () =>
+        post(`/admin/rutas/${estado.ruta.id}/sentidos/${estado.sentido}/tiempos/recalcular`),
+      );
+      actualizarSentidoEnRuta(s);
+      pintarSecuencia();
+      toast('Tiempos estimados recalculados (los reales no se tocaron).', 'exito');
+    } catch (error) {
+      mostrarError(error);
+    }
+  });
+
   // --- Trazado ---
   c.querySelector('#btn-deshacer').addEventListener('click', () => {
     if (estado.puntos.pop()) {
@@ -513,26 +565,53 @@ function pintarSecuencia() {
   const lista = c.querySelector('#lista-secuencia');
   const n = estado.secuencia.length;
 
+  // Tiempos guardados en el servidor (minutos desde el origen, estimado/real, distancia al trazado)
+  const tiempos = new Map((estado.sentidoActual?.embarcaderos ?? []).map((x) => [x.id, x]));
+  // Con el orden sin guardar, los tiempos no se pueden editar (se recalculan al guardar el orden)
+  const bloquearTiempos = estado.sucioSecuencia;
+  let minutosAnterior = -1;
+
   lista.innerHTML = n
     ? estado.secuencia
         .map((id, i) => {
           const e = porId.get(id);
+          const t = tiempos.get(id);
+          const menorQueAnterior = t && t.minutosDesdeOrigen < minutosAnterior;
+          if (t) minutosAnterior = t.minutosDesdeOrigen;
           return `
           <li>
             <span class="orden">${i + 1}</span>
             <span class="nombre">${esc(e?.nombre ?? 'Embarcadero no encontrado')}
-              ${e && !e.activo ? '<span class="etiqueta mal">inactivo</span>' : ''}</span>
+              ${e?.estado === 'inactivo' ? '<span class="etiqueta mal">inactivo</span>' : ''}
+              ${e?.estado === 'cerrado_temporal' ? '<span class="etiqueta aviso">cerrado temp.</span>' : ''}</span>
             <span class="botones">
               <button type="button" class="btn-icono" data-mover="subir" data-i="${i}" title="Subir" ${i === 0 ? 'disabled' : ''}>↑</button>
               <button type="button" class="btn-icono" data-mover="bajar" data-i="${i}" title="Bajar" ${i === n - 1 ? 'disabled' : ''}>↓</button>
               <button type="button" class="btn-icono quitar" data-mover="quitar" data-i="${i}" title="Quitar">✕</button>
             </span>
+            ${
+              t && !bloquearTiempos
+                ? `<span class="tiempo">
+                    <input type="number" class="inp-minutos" data-id="${id}" min="0" max="600" step="1"
+                           value="${t.minutosDesdeOrigen}" ${i === 0 ? 'disabled title="El origen siempre es 0"' : ''} /> min
+                    <label class="check"><input type="checkbox" class="chk-estimado" data-id="${id}"
+                           ${t.tiempoEstimado ? 'checked' : ''} ${i === 0 ? 'disabled' : ''} /> estimado</label>
+                    ${!t.tiempoEstimado ? '<span class="etiqueta ok">real</span>' : ''}
+                    ${t.lejosDelTrazado ? `<span class="etiqueta aviso" title="Está a ${t.distanciaAlTrazadoM} m del trazado: corrige el trazado para que pase por aquí">⚠️ a ${t.distanciaAlTrazadoM} m del trazado</span>` : ''}
+                    ${menorQueAnterior ? '<span class="etiqueta mal" title="Tiene menos minutos que el embarcadero anterior">⚠️ menor que el anterior</span>' : ''}
+                  </span>`
+                : ''
+            }
           </li>`;
         })
         .join('')
     : '<li class="texto-suave" style="justify-content:center">Sin embarcaderos asignados</li>';
 
-  const disponibles = estado.embarcaderos.filter((e) => e.activo && !estado.secuencia.includes(e.id));
+  c.querySelector('#ayuda-tiempos').textContent = bloquearTiempos
+    ? 'Guarda el orden para editar los tiempos: al guardarlo se recalculan los estimados.'
+    : 'Minutos desde el zarpe en el origen. Escribir un valor lo marca como tiempo real; "estimado" = 10 min/km por el trazado.';
+
+  const disponibles = estado.embarcaderos.filter((e) => e.estado !== 'inactivo' && !estado.secuencia.includes(e.id));
   c.querySelector('#sel-agregar').innerHTML = disponibles.length
     ? disponibles.map((e) => `<option value="${e.id}">${esc(e.nombre)}</option>`).join('')
     : '<option value="">No hay más embarcaderos activos</option>';

@@ -17,9 +17,19 @@ import { FiltroRutasDto } from './dto/filtro-rutas.dto.js';
 import { GuardarSentidoDto } from './dto/guardar-sentido.dto.js';
 import { TrazadoDto } from './dto/trazado.dto.js';
 import { formatearRutaDetalle, formatearRutaResumen, formatearSentido } from './ruta.mapper.js';
+import { ActualizarTiempoDto } from './dto/actualizar-tiempo.dto.js';
+import { distanciasAlTrazado, recalcularTiemposEstimados } from './tiempos-estimados.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
-import { AccionAuditoria, Sentido } from '../common/enums.js';
+import { AccionAuditoria, EstadoEmbarcadero, Sentido } from '../common/enums.js';
 import { instantanea } from '../common/utils/instantanea.js';
+
+// Lo que se guarda en la auditoría de cada posición de la secuencia
+const resumenTiempo = (f: RutaEmbarcadero) => ({
+  embarcaderoId: f.embarcaderoId,
+  orden: f.orden,
+  minutosDesdeOrigen: f.minutosDesdeOrigen,
+  tiempoEstimado: f.tiempoEstimado,
+});
 
 @Injectable()
 export class RutasService {
@@ -49,7 +59,11 @@ export class RutasService {
       order: { sentidos: { sentido: 'ASC', embarcaderos: { orden: 'ASC' } } },
     });
     if (!ruta) throw new NotFoundException('Ruta no encontrada');
-    return formatearRutaDetalle(ruta);
+    const distancias = await distanciasAlTrazado(
+      this.dataSource.manager,
+      ruta.sentidos.map((s) => s.id),
+    );
+    return formatearRutaDetalle(ruta, distancias);
   }
 
   async crear(dto: CrearRutaDto, usuarioId: string) {
@@ -118,6 +132,7 @@ export class RutasService {
     registro.destino = dto.destino;
     if (dto.trazado) registro.trazado = this.aLineString(dto.trazado);
     const guardado = await this.sentidos.save(registro);
+    if (dto.trazado) await recalcularTiemposEstimados(this.dataSource.manager, guardado.id);
 
     await this.auditoria.registrar({
       usuarioId,
@@ -136,6 +151,8 @@ export class RutasService {
     const previo = instantanea(registro);
     registro.trazado = this.aLineString(trazado);
     const guardado = await this.sentidos.save(registro);
+    // Con un trazado nuevo cambian las distancias: se recalculan los tiempos estimados
+    await recalcularTiemposEstimados(this.dataSource.manager, registro.id);
 
     await this.auditoria.registrar({
       usuarioId,
@@ -179,7 +196,10 @@ export class RutasService {
       if (faltantes.length > 0) {
         throw new BadRequestException(`Embarcaderos no encontrados: ${faltantes.join(', ')}`);
       }
-      const inactivos = encontrados.filter((e) => !e.activo).map((e) => e.nombre);
+      // Un embarcadero cerrado temporalmente sigue en la ruta; uno dado de baja no
+      const inactivos = encontrados
+        .filter((e) => e.estado === EstadoEmbarcadero.INACTIVO)
+        .map((e) => e.nombre);
       if (inactivos.length > 0) {
         throw new BadRequestException(`Embarcaderos inactivos: ${inactivos.join(', ')}`);
       }
@@ -191,6 +211,10 @@ export class RutasService {
         where: { rutaSentidoId: registro.id },
         order: { orden: 'ASC' },
       });
+      // Los tiempos reales (no estimados) se conservan para los embarcaderos que siguen en la secuencia
+      const reales = new Map(
+        anteriores.filter((a) => !a.tiempoEstimado).map((a) => [a.embarcaderoId, a.minutosDesdeOrigen]),
+      );
 
       await repo.delete({ rutaSentidoId: registro.id });
       if (embarcaderoIds.length > 0) {
@@ -199,9 +223,12 @@ export class RutasService {
             rutaSentidoId: registro.id,
             embarcaderoId,
             orden: i + 1,
+            minutosDesdeOrigen: reales.get(embarcaderoId) ?? 0,
+            tiempoEstimado: !reales.has(embarcaderoId),
           })),
         );
       }
+      await recalcularTiemposEstimados(manager, registro.id);
       await manager.update(RutaSentido, registro.id, { actualizadoEn: new Date() });
 
       await this.auditoria.registrar(
@@ -210,13 +237,87 @@ export class RutasService {
           entidad: 'ruta_embarcaderos',
           entidadId: registro.id,
           accion: AccionAuditoria.ACTUALIZAR,
-          datosPrevios: { embarcaderoIds: anteriores.map((a) => a.embarcaderoId) },
-          datosNuevos: { embarcaderoIds },
+          datosPrevios: { secuencia: anteriores.map(resumenTiempo) },
+          datosNuevos: {
+            secuencia: (await repo.find({ where: { rutaSentidoId: registro.id }, order: { orden: 'ASC' } })).map(
+              resumenTiempo,
+            ),
+          },
         },
         manager,
       );
     });
 
+    return this.obtenerSentidoDetalle(registro.id);
+  }
+
+  // ---------- Tiempos desde el origen ----------
+
+  // Edita los minutos de un embarcadero de la secuencia y si son estimados o reales
+  async actualizarTiempo(
+    rutaId: string,
+    sentido: Sentido,
+    embarcaderoId: string,
+    dto: ActualizarTiempoDto,
+    usuarioId: string,
+  ) {
+    const registro = await this.obtenerSentido(rutaId, sentido);
+
+    await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(RutaEmbarcadero);
+      const fila = await repo.findOneBy({ rutaSentidoId: registro.id, embarcaderoId });
+      if (!fila) throw new NotFoundException('Ese embarcadero no está en la secuencia de este sentido');
+      if (fila.orden === 1 && dto.minutosDesdeOrigen !== undefined && dto.minutosDesdeOrigen !== 0) {
+        throw new BadRequestException('El primer embarcadero es el origen: sus minutos siempre son 0');
+      }
+      const previo = resumenTiempo(fila);
+
+      if (dto.minutosDesdeOrigen !== undefined) fila.minutosDesdeOrigen = dto.minutosDesdeOrigen;
+      // Escribir un valor a mano sin indicar el tipo lo convierte en tiempo real
+      fila.tiempoEstimado = dto.tiempoEstimado ?? (dto.minutosDesdeOrigen !== undefined ? false : fila.tiempoEstimado);
+      await repo.save(fila);
+      await recalcularTiemposEstimados(manager, registro.id);
+      await manager.update(RutaSentido, registro.id, { actualizadoEn: new Date() });
+
+      const nuevo = await repo.findOneByOrFail({ rutaSentidoId: registro.id, embarcaderoId });
+      await this.auditoria.registrar(
+        {
+          usuarioId,
+          entidad: 'ruta_embarcaderos',
+          entidadId: `${registro.id}:${embarcaderoId}`,
+          accion: AccionAuditoria.ACTUALIZAR,
+          datosPrevios: previo,
+          datosNuevos: resumenTiempo(nuevo),
+        },
+        manager,
+      );
+    });
+
+    return this.obtenerSentidoDetalle(registro.id);
+  }
+
+  // Vuelve a calcular los tiempos estimados (los reales no se tocan)
+  async recalcularTiempos(rutaId: string, sentido: Sentido, usuarioId: string) {
+    const registro = await this.obtenerSentido(rutaId, sentido);
+    await this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(RutaEmbarcadero);
+      const orden = { where: { rutaSentidoId: registro.id }, order: { orden: 'ASC' as const } };
+      const antes = (await repo.find(orden)).map(resumenTiempo);
+      const cambios = await recalcularTiemposEstimados(manager, registro.id);
+      if (cambios === 0) return;
+      await manager.update(RutaSentido, registro.id, { actualizadoEn: new Date() });
+      await this.auditoria.registrar(
+        {
+          usuarioId,
+          entidad: 'ruta_embarcaderos',
+          entidadId: registro.id,
+          accion: AccionAuditoria.ACTUALIZAR,
+          datosPrevios: { secuencia: antes },
+          datosNuevos: { secuencia: (await repo.find(orden)).map(resumenTiempo) },
+        },
+        manager,
+      );
+    });
     return this.obtenerSentidoDetalle(registro.id);
   }
 
@@ -245,7 +346,8 @@ export class RutasService {
       relations: { embarcaderos: { embarcadero: true } },
       order: { embarcaderos: { orden: 'ASC' } },
     });
-    return formatearSentido(s!);
+    const distancias = await distanciasAlTrazado(this.dataSource.manager, [id]);
+    return formatearSentido(s!, distancias);
   }
 
   private aLineString(trazado: TrazadoDto): LineString {

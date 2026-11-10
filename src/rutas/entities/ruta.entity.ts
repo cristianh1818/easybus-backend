@@ -7,7 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import type { Relation } from 'typeorm';
-import { EstadoRuta } from '../../common/enums.js';
+import { EstadoRuta, ModoTransporte } from '../../common/enums.js';
 import { RutaSentido } from './ruta-sentido.entity.js';
 
 // Datos generales de una ruta fluvial del Businú.
@@ -31,6 +31,10 @@ export class Ruta {
 
   @Column({ type: 'enum', enum: EstadoRuta, default: EstadoRuta.ACTIVA })
   estado: EstadoRuta;
+
+  // Fluvial (Businú) en la fase 1; bus en la fase 2
+  @Column({ type: 'enum', enum: ModoTransporte, default: ModoTransporte.FLUVIAL })
+  modo: ModoTransporte;
 
   // false = dato de ejemplo / no verificado con el operador
   @Column({ name: 'es_oficial', default: false })

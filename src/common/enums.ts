@@ -11,6 +11,34 @@ export enum EstadoRuta {
   INACTIVA = 'inactiva',
 }
 
+// Modo de transporte: la fase 1 es fluvial (Businú); la fase 2 agrega buses
+// en las mismas tablas, sin crear tablas paralelas.
+export enum ModoTransporte {
+  FLUVIAL = 'fluvial',
+  BUS = 'bus',
+}
+
+// Tipo de punto de parada. La tabla se llama "embarcaderos" (decisión de nombres en español),
+// pero en la fase 2 también guardará paradas de bus.
+export enum TipoEmbarcadero {
+  EMBARCADERO = 'embarcadero',
+  PARADA_BUS = 'parada_bus',
+}
+
+// Orilla del río Sinú donde está el embarcadero
+export enum Margen {
+  IZQUIERDA = 'izquierda',
+  DERECHA = 'derecha',
+}
+
+// ACTIVO: en servicio · CERRADO_TEMPORAL: sigue en las rutas pero hoy no opera
+// · INACTIVO: dado de baja (no se puede asignar a rutas)
+export enum EstadoEmbarcadero {
+  ACTIVO = 'activo',
+  CERRADO_TEMPORAL = 'cerrado_temporal',
+  INACTIVO = 'inactivo',
+}
+
 export enum Sentido {
   IDA = 'ida',
   VUELTA = 'vuelta',

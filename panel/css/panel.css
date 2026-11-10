@@ -364,7 +364,7 @@ input:focus, select:focus, textarea:focus {
 /* ---------- Lista ordenable de embarcaderos ---------- */
 .lista-orden { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
 .lista-orden li {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   padding: 8px 10px; border: 1px solid var(--borde); border-radius: 8px; background: #fff;
 }
 .lista-orden .orden {
@@ -374,6 +374,14 @@ input:focus, select:focus, textarea:focus {
 }
 .lista-orden .nombre { flex: 1; min-width: 0; }
 .lista-orden .botones { display: flex; gap: 4px; }
+/* Segunda línea de cada embarcadero: minutos desde el origen y avisos */
+.lista-orden .tiempo {
+  flex-basis: 100%;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding-left: 38px; font-size: 0.9rem; color: var(--texto-suave);
+}
+.lista-orden .tiempo input[type='number'] { width: 76px; padding: 5px 8px; }
+.lista-orden .tiempo .check { font-weight: 400; }
 .btn-icono { font: inherit; border: 1px solid var(--borde); background: #fff; border-radius: 6px; width: 32px; height: 32px; cursor: pointer; color: var(--rio-700); }
 .btn-icono:hover:not(:disabled) { border-color: var(--rio-500); }
 .btn-icono:disabled { opacity: 0.35; cursor: default; }

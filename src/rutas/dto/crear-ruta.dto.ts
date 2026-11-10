@@ -7,7 +7,7 @@ import {
   Length,
   Matches,
 } from 'class-validator';
-import { EstadoRuta } from '../../common/enums.js';
+import { EstadoRuta, ModoTransporte } from '../../common/enums.js';
 
 export class CrearRutaDto {
   @ApiProperty({ example: 'F1', description: 'Código corto y único de la ruta' })
@@ -35,6 +35,11 @@ export class CrearRutaDto {
   @IsOptional()
   @IsEnum(EstadoRuta)
   estado?: EstadoRuta;
+
+  @ApiPropertyOptional({ enum: ModoTransporte, default: ModoTransporte.FLUVIAL })
+  @IsOptional()
+  @IsEnum(ModoTransporte)
+  modo?: ModoTransporte;
 
   @ApiPropertyOptional({ default: false, description: 'true si el dato está verificado con el operador' })
   @IsOptional()

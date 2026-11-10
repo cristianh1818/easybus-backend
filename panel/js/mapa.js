@@ -6,6 +6,7 @@ export const MONTERIA = [8.7545, -75.8835];
 
 export const COLORES = {
   activo: '#07295b',
+  cerrado: '#e0a100',
   inactivo: '#9aa7b6',
   seleccion: '#e53935',
   trazado: '#2a64b8',
@@ -49,6 +50,10 @@ export function puntoNumerado(latlng, numero, color = COLORES.activo, interactiv
     }),
   });
 }
+
+// Color del punto según el estado del embarcadero
+export const colorEstado = (estado) =>
+  estado === 'activo' ? COLORES.activo : estado === 'cerrado_temporal' ? COLORES.cerrado : COLORES.inactivo;
 
 // GeoJSON usa [longitud, latitud]; Leaflet usa [latitud, longitud]
 export const aLatLng = ([lng, lat]) => [lat, lng];

@@ -19,6 +19,7 @@ import { FiltroRutasDto } from './dto/filtro-rutas.dto.js';
 import { GuardarSentidoDto } from './dto/guardar-sentido.dto.js';
 import { TrazadoDto } from './dto/trazado.dto.js';
 import { AsignarEmbarcaderosDto } from './dto/asignar-embarcaderos.dto.js';
+import { ActualizarTiempoDto } from './dto/actualizar-tiempo.dto.js';
 import { Auth } from '../auth/decorators/auth.decorator.js';
 import { UsuarioActual } from '../auth/decorators/usuario-actual.decorator.js';
 import type { UsuarioActual as UsuarioActualData } from '../auth/interfaces/usuario-token.interface.js';
@@ -111,5 +112,31 @@ export class AdminRutasController {
     @UsuarioActual() u: UsuarioActualData,
   ) {
     return this.rutas.asignarEmbarcaderos(id, sentido, dto.embarcaderoIds, u.id);
+  }
+
+  @Patch(':id/sentidos/:sentido/embarcaderos/:embarcaderoId')
+  @ApiParam({ name: 'sentido', enum: Sentido })
+  @ApiOperation({ summary: 'Editar los minutos desde el origen de un embarcadero y si son estimados o reales' })
+  actualizarTiempo(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('sentido', sentidoPipe) sentido: Sentido,
+    @Param('embarcaderoId', ParseUUIDPipe) embarcaderoId: string,
+    @Body() dto: ActualizarTiempoDto,
+    @UsuarioActual() u: UsuarioActualData,
+  ) {
+    return this.rutas.actualizarTiempo(id, sentido, embarcaderoId, dto, u.id);
+  }
+
+  @Post(':id/sentidos/:sentido/tiempos/recalcular')
+  @ApiParam({ name: 'sentido', enum: Sentido })
+  @ApiOperation({
+    summary: 'Recalcular los tiempos estimados (10 min/km por el trazado; nunca menos que la línea recta)',
+  })
+  recalcularTiempos(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('sentido', sentidoPipe) sentido: Sentido,
+    @UsuarioActual() u: UsuarioActualData,
+  ) {
+    return this.rutas.recalcularTiempos(id, sentido, u.id);
   }
 }
