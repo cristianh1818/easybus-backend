@@ -203,6 +203,9 @@ se hace agregando campos de modo/tipo a estas mismas tablas, no creando tablas p
 | GET | `/rutas/{id}` | Detalle con sentidos, trazado GeoJSON y embarcaderos en orden | RF-02/03/04 |
 | GET | `/rutas/{id}/horarios?sentido=&tipoDia=` | Horarios por sentido y tipo de día | RF-05 |
 | GET | `/rutas/{id}/proxima-salida?sentido=&momento=` | Próxima salida (America/Bogota) | RF-06 |
+| GET | `/embarcaderos?tipo=` | Embarcaderos en servicio (activos y cerrados temporalmente) | — |
+| GET | `/embarcaderos/{id}` | Detalle + rutas activas que lo atienden (parada N de M, minutos desde el origen) | RF-04 |
+| GET | `/embarcaderos/cercanos?lat=&lng=&radio=&limite=` | Embarcaderos a menos de `radio` metros (50–5000, por defecto 500), del más cercano al más lejano | RF-09 |
 | POST | `/reportes` | Reportar un error (token opcional) | RF-12 |
 | POST | `/auth/login` · `/auth/register` | Iniciar sesión / crear cuenta de pasajero | RF-10/14 |
 | GET | `/health` | Estado de la API y la base de datos | RNF-11 |
@@ -228,6 +231,12 @@ se hace agregando campos de modo/tipo a estas mismas tablas, no creando tablas p
 | GET | `/admin/auditoria` | Registro de cambios (quién, qué, cuándo, antes/después) | RF-21 |
 | GET | `/admin/resumen` | Cifras generales | — |
 | GET | `/admin/usuarios` | Usuarios registrados | — |
+
+Los embarcaderos `inactivos` nunca aparecen en las consultas públicas. La búsqueda por cercanía usa
+`ST_DWithin` y `ST_Distance` sobre `geography` (metros reales). **Privacidad (RNF-07):** en la beta la
+ubicación GPS del usuario no se envía al servidor; `/embarcaderos/cercanos` está pensado para un punto
+que el usuario busca o escribe (origen o destino). Para "cerca de mí", la app calcula la distancia en el
+dispositivo con la lista de `/embarcaderos`.
 
 ### Cálculo de la próxima salida (sección 8.3 del documento)
 

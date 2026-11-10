@@ -51,6 +51,7 @@ async function bootstrap() {
       // Orden de las secciones en la página
       .addTag('Autenticación')
       .addTag('Público · Rutas')
+      .addTag('Público · Embarcaderos')
       .addTag('Público · Reportes')
       .addTag('Admin · Resumen')
       .addTag('Admin · Embarcaderos')
