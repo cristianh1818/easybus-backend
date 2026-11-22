@@ -23,3 +23,15 @@ export class FiltroFestivosDto {
   @Max(2100)
   anio?: number;
 }
+
+// Forma de cada elemento de GET /festivos (para Swagger)
+export class FestivoPublicoDto {
+  @ApiProperty({
+    example: '2026-11-02',
+    description: 'Fecha en formato AAAA-MM-DD',
+  })
+  fecha: string;
+
+  @ApiProperty({ example: 'Día de Todos los Santos' })
+  nombre: string;
+}
