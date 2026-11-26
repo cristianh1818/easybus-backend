@@ -7,12 +7,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { hash } from 'bcryptjs';
 import { Usuario } from './entities/usuario.entity.js';
 import { Rol } from '../common/enums.js';
-
-// Costo de bcrypt: cuántas veces se repite el cálculo del hash (más = más lento de romper)
-const BCRYPT_ROUNDS = 10;
+import { hashContrasena } from './contrasena.js';
 
 @Injectable()
 export class UsuariosService implements OnApplicationBootstrap {
@@ -49,13 +46,16 @@ export class UsuariosService implements OnApplicationBootstrap {
   }): Promise<Usuario> {
     const correo = datos.correo.toLowerCase().trim();
     if (await this.repo.existsBy({ correo })) {
-      throw new ConflictException({ code: 'CORREO_REGISTRADO', message: 'Ya existe una cuenta con ese correo' });
+      throw new ConflictException({
+        code: 'CORREO_REGISTRADO',
+        message: 'Ya existe una cuenta con ese correo',
+      });
     }
 
     const usuario = this.repo.create({
       nombre: datos.nombre.trim(),
       correo,
-      contrasenaHash: await hash(datos.password, BCRYPT_ROUNDS),
+      contrasenaHash: await hashContrasena(datos.password),
       rol: datos.rol ?? Rol.PASAJERO,
     });
     const guardado = await this.repo.save(usuario);

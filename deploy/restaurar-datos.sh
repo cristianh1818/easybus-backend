@@ -22,14 +22,20 @@ read -r -p "Esto reemplaza la base '$DB_NAME' y las fotos de la VM. ¿Seguir? (s
 [ "$r" = "si" ] || { echo "Cancelado"; exit 1; }
 
 echo "1/5 Base encendida y API detenida..."
-$DC up -d postgres
+$DC up -d postgres respaldo
 $DC stop api
 until $DC exec -T postgres pg_isready -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; do sleep 2; done
 
 echo "2/5 Respaldo de lo que había..."
-mkdir -p backups
-$DC exec -T postgres pg_dump -U "$DB_USER" -d "$DB_NAME" -Fc \
-  > "backups/antes_de_restaurar_$(date +%Y%m%d_%H%M).dump" || true
+# Lo escribe el contenedor "respaldo" (root, monta ./backups): la carpeta backups/ la
+# crea Docker como root y azureuser no puede escribir en ella sin sudo.
+ANTES="antes_de_restaurar_$(date +%Y%m%d_%H%M%S).dump"
+if ! $DC exec -T respaldo pg_dump -Fc --no-owner --no-acl -f "/backups/$ANTES"; then
+  echo "No se pudo respaldar la base actual: no se restaura nada."
+  $DC up -d
+  exit 1
+fi
+echo "   Guardado en backups/$ANTES"
 
 echo "3/5 Restaurando la base..."
 $DC cp "$DUMP" postgres:/tmp/easybus.dump

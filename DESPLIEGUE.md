@@ -245,6 +245,28 @@ $ docker image prune -f        # borra imágenes viejas para no llenar el disco
 Las migraciones nuevas de la base se aplican solas al arrancar la API
 (`DB_MIGRATIONS_RUN=true`). Los datos y las fotos no se tocan.
 
+### Cambiar la clave del administrador
+
+Después de migrar tu base, el administrador tiene la misma clave que en tu computador.
+Cámbiala en la VM por una propia del servidor:
+
+```bash
+$ cd /opt/easybus
+$ bash deploy/cambiar-clave-admin.sh
+```
+
+Pide el correo del administrador y la clave nueva dos veces (no se ve al escribir;
+mínimo 12 caracteres). El script ([deploy/cambiar-clave-admin.sh](deploy/cambiar-clave-admin.sh))
+calcula el hash dentro del contenedor de la API, con la misma librería (`bcryptjs`) y el
+mismo costo que usa la API, y solo guarda el hash en la tabla `usuarios`. La clave no
+queda en el historial de la terminal, ni en la lista de procesos, ni en los logs.
+
+- Necesita la API encendida y actualizada: si dice "versión anterior", ejecuta antes
+  `docker compose up -d --build`.
+- Las sesiones abiertas siguen valiendo hasta que vence su token (1 hora).
+- Si vuelves a ejecutar el paso 9 (restaurar tu base local), vuelve la clave de tu
+  computador: repite este cambio.
+
 ### Ver logs (registros)
 
 ```bash
@@ -277,6 +299,19 @@ partir de las 3:00 a. m. (hora de Colombia), en `/opt/easybus/backups/`:
 - `uploads_AAAAMMDD.tgz`: las fotos.
 
 Se conservan los últimos 7 días (`DIAS_RESPALDO` en el `.env`).
+
+> **Permisos de `backups/`.** Docker crea esa carpeta como `root` (la primera vez que
+> arranca el servicio `respaldo`), así que `azureuser` puede leer los respaldos (y
+> bajarlos con `scp`) pero no crear ni borrar archivos ahí. Los scripts no lo necesitan
+> (escriben a través del contenedor), pero si quieres borrar o mover respaldos a mano,
+> haz una vez:
+>
+> ```bash
+> $ sudo chown -R azureuser:azureuser /opt/easybus/backups
+> ```
+>
+> Los respaldos nuevos seguirán saliendo a nombre de `root`; repite el `chown` si
+> necesitas borrar alguno.
 
 Respaldo inmediato (por ejemplo, antes de una actualización):
 
