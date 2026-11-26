@@ -85,10 +85,23 @@ export default {
               <label>Tipo
                 <select name="tipo">${opciones(TEXTOS.tipoEmbarcadero)}</select>
               </label>
-              <label>Foto <span class="ayuda">(URL, opcional)</span>
-                <input name="fotoUrl" type="url" maxlength="500" placeholder="https://…" />
-              </label>
             </div>
+            <fieldset class="campo-foto">
+              <legend>Foto <span class="ayuda">(opcional · JPG, PNG o WEBP, máx. 5 MB)</span></legend>
+              <div class="foto-contenido">
+                <div class="foto-vista" id="foto-vista"></div>
+                <div class="foto-acciones">
+                  <input type="file" id="inp-foto" accept="image/jpeg,image/png,image/webp" hidden />
+                  <button type="button" class="btn btn-secundario btn-chico" id="btn-subir-foto">📷 Subir foto</button>
+                  <button type="button" class="btn btn-peligro btn-chico" id="btn-quitar-foto" hidden>Quitar foto</button>
+                  <p class="ayuda" id="foto-estado"></p>
+                </div>
+              </div>
+              <details id="det-foto-url">
+                <summary class="ayuda">o pegar la URL de una foto</summary>
+                <input name="fotoUrl" type="url" maxlength="500" placeholder="https://…" />
+              </details>
+            </fieldset>
             <label class="check"><input type="checkbox" name="esOficial" /> Dato oficial (verificado con el operador)</label>
             <div class="fila">
               <button type="submit" class="btn btn-primario" id="btn-guardar">Crear embarcadero</button>
@@ -118,6 +131,7 @@ export default {
       e.preventDefault();
       guardar(form);
     });
+    conectarFoto(form);
     contenedor.querySelector('#btn-cancelar').addEventListener('click', () => limpiarFormulario());
     contenedor.querySelector('#btn-nuevo').addEventListener('click', () => limpiarFormulario());
 
@@ -221,6 +235,117 @@ function marcarSeleccion(latlng, centrar) {
   if (centrar) estado.mapa.setView(latlng, Math.max(estado.mapa.getZoom(), 15));
 }
 
+// ---------- Foto ----------
+// Editando un embarcadero, "Subir foto" y "Quitar foto" se aplican de inmediato
+// (la API necesita su id). En uno nuevo, la foto elegida se sube justo después de crearlo.
+
+const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_FOTO = 5 * 1024 * 1024;
+const esFotoSubida = (url) => typeof url === 'string' && url.startsWith('/uploads/');
+
+const subirFoto = (id, archivo) => {
+  const datos = new FormData();
+  datos.append('foto', archivo);
+  return post(`/admin/embarcaderos/${id}/foto`, datos);
+};
+
+function conectarFoto(form) {
+  const c = estado.contenedor;
+  const inp = c.querySelector('#inp-foto');
+  c.querySelector('#btn-subir-foto').addEventListener('click', () => inp.click());
+
+  inp.addEventListener('change', async () => {
+    const archivo = inp.files[0];
+    inp.value = ''; // permite volver a elegir el mismo archivo
+    if (!archivo) return;
+    if (!TIPOS_FOTO.includes(archivo.type)) return toast('La foto debe ser JPG, PNG o WEBP.', 'error');
+    if (archivo.size > MAX_FOTO) return toast('La foto supera el máximo de 5 MB.', 'error');
+
+    if (!estado.editandoId) {
+      estado.foto.pendiente = archivo;
+      return pintarFoto();
+    }
+    try {
+      const actualizado = await conCarga(c.querySelector('#btn-subir-foto'), () =>
+        subirFoto(estado.editandoId, archivo),
+      );
+      reemplazarEnLista(actualizado);
+      mostrarFoto(actualizado.fotoUrl);
+      toast('Foto subida (reducida a 1280 px, en WEBP y sin datos de ubicación).', 'exito');
+    } catch (error) {
+      mostrarError(error);
+    }
+  });
+
+  c.querySelector('#btn-quitar-foto').addEventListener('click', async (e) => {
+    if (estado.foto.pendiente) {
+      estado.foto.pendiente = null;
+      return pintarFoto();
+    }
+    if (!confirm('¿Quitar la foto de este embarcadero?')) return;
+    try {
+      const actualizado = await conCarga(e.currentTarget, () =>
+        del(`/admin/embarcaderos/${estado.editandoId}/foto`),
+      );
+      reemplazarEnLista(actualizado);
+      mostrarFoto(null);
+      toast('Foto quitada.', 'exito');
+    } catch (error) {
+      mostrarError(error);
+    }
+  });
+
+  // Vista previa de la URL pegada
+  form.fotoUrl.addEventListener('change', () => pintarFoto());
+  mostrarFoto(null);
+}
+
+function reemplazarEnLista(emb) {
+  estado.lista = estado.lista.map((x) => (x.id === emb.id ? emb : x));
+}
+
+// Carga en el formulario la foto guardada del embarcadero (o ninguna)
+function mostrarFoto(fotoUrl) {
+  const form = estado.contenedor.querySelector('#form-embarcadero');
+  const pegada = fotoUrl && !esFotoSubida(fotoUrl) ? fotoUrl : '';
+  if (estado.foto?.objetoUrl) URL.revokeObjectURL(estado.foto.objetoUrl);
+  estado.foto = { guardada: fotoUrl ?? null, pendiente: null, urlInicial: pegada };
+  form.fotoUrl.value = pegada;
+  estado.contenedor.querySelector('#det-foto-url').open = !!pegada;
+  pintarFoto();
+}
+
+function pintarFoto() {
+  const c = estado.contenedor;
+  const vista = c.querySelector('#foto-vista');
+  const { guardada, pendiente } = estado.foto;
+  const pegada = c.querySelector('#form-embarcadero').fotoUrl.value.trim();
+
+  if (estado.foto.objetoUrl) URL.revokeObjectURL(estado.foto.objetoUrl);
+  estado.foto.objetoUrl = pendiente ? URL.createObjectURL(pendiente) : null;
+  const src = estado.foto.objetoUrl ?? (pegada || (esFotoSubida(guardada) ? guardada : null));
+
+  vista.replaceChildren();
+  if (src) {
+    const img = document.createElement('img');
+    img.alt = 'Vista previa de la foto';
+    img.src = src;
+    img.onerror = () => vista.replaceChildren(Object.assign(document.createElement('span'), { textContent: 'No se pudo cargar' }));
+    vista.append(img);
+  } else {
+    vista.append(Object.assign(document.createElement('span'), { textContent: 'Sin foto' }));
+  }
+
+  const hayFoto = !!(pendiente || guardada);
+  c.querySelector('#btn-quitar-foto').hidden = !(pendiente || (estado.editandoId && guardada));
+  c.querySelector('#btn-subir-foto').textContent = hayFoto ? '📷 Cambiar foto' : '📷 Subir foto';
+  c.querySelector('#foto-estado').textContent = pendiente
+    ? `${pendiente.name} · se subirá al crear el embarcadero`
+    : esFotoSubida(guardada)
+      ? 'Foto subida a EASYBUS'
+      : '';
+}
+
 // ---------- Acciones ----------
 
 function editar(emb) {
@@ -234,8 +359,8 @@ function editar(emb) {
   form.tipo.value = emb.tipo;
   form.margen.value = emb.margen ?? '';
   for (const campo of CAMPOS_SI_NO) form[campo].value = emb[campo] === null ? '' : String(emb[campo]);
-  form.fotoUrl.value = emb.fotoUrl ?? '';
   form.esOficial.checked = emb.esOficial;
+  mostrarFoto(emb.fotoUrl);
 
   estado.contenedor.querySelector('#titulo-form').textContent = `Editar: ${emb.nombre}`;
   estado.contenedor.querySelector('#btn-guardar').textContent = 'Guardar cambios';
@@ -258,6 +383,7 @@ function limpiarFormulario() {
   estado.contenedor.querySelector('#btn-nuevo').hidden = true;
   estado.marcaSeleccion?.remove();
   estado.marcaSeleccion = null;
+  mostrarFoto(null);
   pintarTabla();
   pintarMapa();
 }
@@ -279,9 +405,13 @@ async function guardar(form) {
     estado: form.estado.value,
     tipo: form.tipo.value,
     margen: form.margen.value || null,
-    fotoUrl: form.fotoUrl.value.trim() || null,
     esOficial: form.esOficial.checked,
   };
+  // La URL pegada solo se envía si cambió (una foto subida no aparece en ese campo)
+  const url = form.fotoUrl.value.trim();
+  if (estado.editandoId ? url !== estado.foto.urlInicial : url && !estado.foto.pendiente) {
+    datos.fotoUrl = url || null;
+  }
   // Accesibilidad: "" = sin dato (null), "true"/"false" = sí/no
   for (const campo of CAMPOS_SI_NO) datos[campo] = form[campo].value === '' ? null : form[campo].value === 'true';
 
@@ -293,7 +423,16 @@ async function guardar(form) {
         estado.lista = estado.lista.map((x) => (x.id === actualizado.id ? actualizado : x));
         toast(`Embarcadero "${actualizado.nombre}" actualizado.`, 'exito');
       } else {
-        const creado = await post('/admin/embarcaderos', datos);
+        let creado = await post('/admin/embarcaderos', datos);
+        // La foto elegida antes de crear se sube ahora que el embarcadero tiene id
+        if (estado.foto.pendiente) {
+          try {
+            creado = await subirFoto(creado.id, estado.foto.pendiente);
+          } catch (error) {
+            mostrarError(error);
+            toast('El embarcadero se creó, pero la foto no se pudo subir. Edítalo para intentarlo de nuevo.', 'error');
+          }
+        }
         estado.lista = [...estado.lista, creado].sort((a, b) => a.nombre.localeCompare(b.nombre));
         toast(`Embarcadero "${creado.nombre}" creado.`, 'exito');
       }

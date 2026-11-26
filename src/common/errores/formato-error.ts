@@ -60,6 +60,11 @@ const TRADUCCIONES: [RegExp, string][] = [
   [/^(\S+) must not be greater than (\S+)$/, '$1 no puede ser mayor que $2'],
   [/^(\S+) should not be empty$/, '$1 es obligatorio'],
   [/^(\S+) must be an array$/, '$1 debe ser una lista'],
+  // Subida de archivos (multer)
+  [/^File too large$/, 'El archivo supera el tamaño máximo permitido (5 MB)'],
+  [/^Unexpected (file )?field/,'Envía un solo archivo, en el campo "foto"'],
+  [/^Too many (files|fields|parts)$/, 'Envía un solo archivo, en el campo "foto", sin otros campos'],
+  [/^Multipart: Boundary not found$/, 'La petición debe ser multipart/form-data'],
 ];
 
 // Si el mensaje coincide con un patrón, se reemplaza COMPLETO por la traducción

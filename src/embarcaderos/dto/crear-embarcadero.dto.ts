@@ -6,11 +6,11 @@ import {
   IsLongitude,
   IsOptional,
   IsString,
-  IsUrl,
   Length,
   MaxLength,
 } from 'class-validator';
 import { EstadoEmbarcadero, Margen, TipoEmbarcadero } from '../../common/enums.js';
+import { IsFotoUrl } from '../../common/validators/foto-url.validator.js';
 
 export class CrearEmbarcaderoDto {
   @ApiProperty({ example: 'Embarcadero Calle 30' })
@@ -62,9 +62,13 @@ export class CrearEmbarcaderoDto {
   @IsBoolean()
   tieneIluminacion?: boolean | null;
 
-  @ApiPropertyOptional({ example: 'https://ejemplo.com/foto.jpg', nullable: true })
+  @ApiPropertyOptional({
+    example: 'https://ejemplo.com/foto.jpg',
+    nullable: true,
+    description: 'URL externa, o ruta /uploads/… de una foto subida con POST /admin/embarcaderos/{id}/foto',
+  })
   @IsOptional()
-  @IsUrl({ require_protocol: true }, { message: 'fotoUrl debe ser una URL completa (https://…)' })
+  @IsFotoUrl()
   @MaxLength(500)
   fotoUrl?: string | null;
 

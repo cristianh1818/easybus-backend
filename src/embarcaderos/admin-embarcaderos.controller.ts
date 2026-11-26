@@ -8,8 +8,14 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { memoryStorage } from 'multer';
+import { TAMANO_MAXIMO_FOTO } from './fotos/procesar-foto.js';
 import { EmbarcaderosService } from './embarcaderos.service.js';
 import { CrearEmbarcaderoDto } from './dto/crear-embarcadero.dto.js';
 import { ActualizarEmbarcaderoDto } from './dto/actualizar-embarcadero.dto.js';
@@ -51,6 +57,43 @@ export class AdminEmbarcaderosController {
     @UsuarioActual() u: UsuarioActualData,
   ) {
     return this.embarcaderos.actualizar(id, dto, u.id);
+  }
+
+  @Post(':id/foto')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @UseInterceptors(
+    FileInterceptor('foto', {
+      storage: memoryStorage(),
+      limits: { fileSize: TAMANO_MAXIMO_FOTO, files: 1, fields: 0 },
+    }),
+  )
+  @ApiOperation({
+    summary: 'Subir o reemplazar la foto del embarcadero',
+    description:
+      'JPG, PNG o WEBP de máximo 5 MB (se valida el contenido real). Se reduce a 1280 px, ' +
+      'se convierte a WEBP y se le quitan los metadatos EXIF (incluida la ubicación GPS). ' +
+      'La foto anterior se borra. Devuelve el embarcadero con fotoUrl = /uploads/….webp',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['foto'],
+      properties: { foto: { type: 'string', format: 'binary' } },
+    },
+  })
+  subirFoto(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() archivo: Express.Multer.File | undefined,
+    @UsuarioActual() u: UsuarioActualData,
+  ) {
+    return this.embarcaderos.subirFoto(id, archivo?.buffer, u.id);
+  }
+
+  @Delete(':id/foto')
+  @ApiOperation({ summary: 'Quitar la foto del embarcadero (borra el archivo subido)' })
+  quitarFoto(@Param('id', ParseUUIDPipe) id: string, @UsuarioActual() u: UsuarioActualData) {
+    return this.embarcaderos.quitarFoto(id, u.id);
   }
 
   @Delete(':id')

@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Point } from 'typeorm';
@@ -11,6 +16,8 @@ import { formatearEmbarcadero } from './embarcadero.mapper.js';
 import { AuditoriaService } from '../auditoria/auditoria.service.js';
 import { AccionAuditoria } from '../common/enums.js';
 import { instantanea } from '../common/utils/instantanea.js';
+import { borrarSubido, esRutaLocal, guardarWebp } from '../common/archivos/uploads.js';
+import { procesarFoto } from './fotos/procesar-foto.js';
 
 const ENTIDAD = 'embarcaderos';
 
@@ -78,7 +85,57 @@ export class EmbarcaderosService {
       datosPrevios: previo,
       datosNuevos: instantanea(actualizado),
     });
+    // Si se cambió o quitó una foto subida, se borra el archivo anterior
+    if (previo.fotoUrl !== actualizado.fotoUrl) await this.borrarFotoSinUso(previo.fotoUrl as string | null);
     return formatearEmbarcadero(actualizado);
+  }
+
+  // Sube (o reemplaza) la foto: valida, redimensiona, convierte a WEBP sin EXIF,
+  // la guarda con nombre aleatorio y borra la anterior. Queda en la auditoría.
+  async subirFoto(id: string, datos: Buffer | undefined, usuarioId: string) {
+    if (!datos?.length) {
+      throw new BadRequestException({
+        code: 'FOTO_REQUERIDA',
+        message: 'Adjunta la foto en el campo "foto" (multipart/form-data)',
+      });
+    }
+    const actual = await this.buscar(id);
+    const webp = await procesarFoto(datos);
+    const ruta = await guardarWebp(webp);
+    try {
+      return await this.cambiarFoto(actual, ruta, usuarioId);
+    } catch (error) {
+      await borrarSubido(ruta); // no dejar archivos huérfanos si falla la base
+      throw error;
+    }
+  }
+
+  async quitarFoto(id: string, usuarioId: string) {
+    const actual = await this.buscar(id);
+    if (!actual.fotoUrl) return formatearEmbarcadero(actual);
+    return this.cambiarFoto(actual, null, usuarioId);
+  }
+
+  private async cambiarFoto(actual: Embarcadero, fotoUrl: string | null, usuarioId: string) {
+    const previo = instantanea(actual);
+    await this.repo.update(actual.id, { fotoUrl });
+    const actualizado = await this.buscar(actual.id);
+    await this.auditoria.registrar({
+      usuarioId,
+      entidad: ENTIDAD,
+      entidadId: actual.id,
+      accion: AccionAuditoria.ACTUALIZAR,
+      datosPrevios: previo,
+      datosNuevos: instantanea(actualizado),
+    });
+    await this.borrarFotoSinUso(actual.fotoUrl);
+    return formatearEmbarcadero(actualizado);
+  }
+
+  // Borra el archivo de una foto subida, salvo que otro embarcadero todavía la use
+  private async borrarFotoSinUso(ruta: string | null) {
+    if (!esRutaLocal(ruta)) return;
+    if ((await this.repo.countBy({ fotoUrl: ruta })) === 0) await borrarSubido(ruta);
   }
 
   async eliminar(id: string, usuarioId: string) {
@@ -100,6 +157,7 @@ export class EmbarcaderosService {
       accion: AccionAuditoria.ELIMINAR,
       datosPrevios: instantanea(actual),
     });
+    await this.borrarFotoSinUso(actual.fotoUrl);
     return { eliminado: true, id };
   }
 

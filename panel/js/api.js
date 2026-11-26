@@ -77,7 +77,9 @@ export function onSesionExpirada(fn) {
 // publico: true -> no envía el token (para probar los endpoints del pasajero tal cual)
 export async function api(metodo, ruta, cuerpo, { publico = false } = {}) {
   const headers = { Accept: 'application/json' };
-  if (cuerpo !== undefined) headers['Content-Type'] = 'application/json';
+  // FormData (subida de archivos): el navegador pone el Content-Type multipart con su boundary
+  const esArchivo = cuerpo instanceof FormData;
+  if (cuerpo !== undefined && !esArchivo) headers['Content-Type'] = 'application/json';
   const token = sesionActual()?.token;
   if (token && !publico) headers.Authorization = `Bearer ${token}`;
 
@@ -86,7 +88,7 @@ export async function api(metodo, ruta, cuerpo, { publico = false } = {}) {
     respuesta = await fetch(BASE + ruta, {
       method: metodo,
       headers,
-      body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
+      body: esArchivo ? cuerpo : cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
     });
   } catch {
     throw new ApiError(0, 'No se pudo conectar con la API. ¿Está corriendo "npm run start:dev"?');

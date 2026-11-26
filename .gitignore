@@ -16,3 +16,7 @@ backups/
 *.log
 *.tsbuildinfo
 .DS_Store
+
+# Fotos subidas desde el panel (en producción viven en un volumen de Docker)
+/uploads/
+/uploads-prueba/

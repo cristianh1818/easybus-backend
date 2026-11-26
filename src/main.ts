@@ -1,14 +1,27 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { carpetaUploads, PREFIJO_UPLOADS } from './common/archivos/uploads.js';
 import { AppModule } from './app.module.js';
 import { ErroresFilter } from './common/errores/errores.filter.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Todas las rutas de la API empiezan por /api/v1 (versionado)
   app.setGlobalPrefix('api/v1');
+
+  // Fotos subidas por el administrador: /uploads/<uuid>.webp (fuera de /api/v1).
+  // Los nombres son aleatorios y nunca se reutilizan, así que se pueden guardar en caché.
+  app.useStaticAssets(carpetaUploads(), {
+    prefix: `${PREFIJO_UPLOADS}/`,
+    index: false,
+    dotfiles: 'deny',
+    maxAge: '365d',
+    immutable: true,
+    setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
+  });
 
   // CORS: en producción solo se acepta el dominio del panel (variable CORS_ORIGINS)
   const origenes = process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean);
