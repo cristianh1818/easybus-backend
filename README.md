@@ -216,6 +216,15 @@ se hace agregando campos de modo/tipo a estas mismas tablas, no creando tablas p
 | POST | `/auth/login` · `/auth/register` | Iniciar sesión / crear cuenta de pasajero | RF-10/14 |
 | GET | `/health` | Estado de la API y la base de datos | RNF-11 |
 
+### Cuenta del pasajero (requieren token, cualquier rol)
+
+| Método | Ruta | Descripción | Req. |
+|---|---|---|---|
+| GET | `/auth/me` | Datos del usuario del token | — |
+| GET | `/usuarios/me/favoritos` | Rutas y embarcaderos guardados (`{ rutas, embarcaderos }`) | RF-11 |
+| POST | `/usuarios/me/favoritos` | Guardar: `{ "tipo": "ruta" \| "embarcadero", "id": "<uuid>" }` (idempotente, 404 si no existe) | RF-11 |
+| DELETE | `/usuarios/me/favoritos/{tipo}/{id}` | Quitar (204, idempotente) | RF-11 |
+
 ### Administrador (requieren token con rol `administrador`)
 
 | Método | Ruta | Descripción | Req. |
@@ -379,14 +388,90 @@ panel/
 - Token de renovación (refresh) con rotación y `/auth/logout`.
 - Importación CSV / GeoJSON (RF-19).
 - Búsquedas por cercanía con PostGIS: embarcaderos cercanos y rutas por origen/destino (RF-07, RF-09).
-- Favoritos del pasajero (RF-11) — la tabla ya existe.
 - Asignar embarcaciones a horarios (qué embarcación hace cada salida), para mostrar capacidad o
   avisar cuando una embarcación pasa a mantenimiento y afecta salidas programadas.
 - Validar datos reales con el operador del Businú.
 
 ---
 
-## 11. Guion de la demo — Opción A: desde el panel (≈ 10 minutos, recomendada)
+## 11. Guion de la entrega final — panel + app (10 minutos)
+
+Se muestran juntos el **panel** (portátil, proyectado) y la **app** (celular, con la pantalla
+duplicada en el proyector con *scrcpy* o la función de transmitir del teléfono). La idea que guía
+la demo: *lo que el administrador cambia en el panel lo ve el pasajero en la app*.
+
+**Preparación (antes de entrar al salón)**
+
+- Servidor: abrir `https://easybus-unicordoba.northcentralus.cloudapp.azure.com/api/v1/health`
+  → `"status":"ok"`. Si el servidor no está disponible, usar el **plan B** (al final).
+- Portátil: `https://easybus-unicordoba.northcentralus.cloudapp.azure.com/panel` con la sesión
+  del administrador ya iniciada.
+- Celular: APK compilada contra el servidor (ver `PROGRESO.md` de la app), ubicación activada,
+  sin cuenta iniciada y la app abierta una vez con internet (así queda la caché para la parte
+  sin conexión).
+- **No** ejecutar `npm run seed:reset`: borra los datos cargados desde el panel. Todo lo que se
+  cree en la demo se deshace al final (paso 9).
+
+**1. Contexto (0:00 – 1:00)**
+
+1. El problema: el pasajero del Businú no sabe a qué hora pasa la embarcación por su embarcadero.
+2. Las tres piezas: app Flutter (pasajero), API NestJS + PostgreSQL/PostGIS y panel del
+   administrador, desplegados con Docker en Azure con HTTPS.
+3. Aviso honesto: los horarios y tiempos son de ejemplo (no oficiales) y la hora es
+   **programada**, no la ubicación en tiempo real.
+
+**2. App: consultar sin cuenta (1:00 – 4:00)**
+
+4. Abrir la app: splash con el logo y el **Mapa** del río con los 11 embarcaderos.
+5. Tocar el chip **BS-1** → *Ver recorrido y horarios* (pantalla insignia): la **línea del río**
+   con los embarcaderos en orden, su margen y la hora estimada de paso. Tocar otra salida en
+   *Horarios* y ver cómo cambian las horas. Cambiar a **Vuelta**.
+6. Volver al mapa, tocar un embarcadero → hoja con la **foto de portada** y el próximo zarpe →
+   *Ver detalle* (la foto "viaja" a la pantalla) → tocar la foto: pantalla completa con zoom.
+7. **¿A dónde quieres ir hoy?** → *Desde*: usar mi ubicación → *Hacia*: tocar un punto del
+   mapa cerca de otro embarcadero. La app propone dónde subir, el sentido, dónde bajar, la
+   próxima salida y la hora de llegada, calculado en el teléfono.
+8. Activar el **modo avión** y repetir la consulta: sigue funcionando con los datos guardados
+   ("Calculado en tu teléfono, sin conexión"). Quitar el modo avión.
+
+**3. Panel → app (4:00 – 7:30)**
+
+9. En el panel: **Avisos de servicio** → publicar un aviso *Retraso* (o *Suspendido*) en BS-1
+   con un motivo corto y vigencia de 1 hora.
+10. En la app: deslizar hacia abajo en **Embarcaderos** (la gota de agua) → el aviso aparece
+    **antes que los horarios**; si es suspensión, el zarpe dice "Suspendido".
+11. En el panel: **Embarcaderos** → subir una foto a un embarcadero sin foto → en la app,
+    deslizar para actualizar y abrirlo: ya tiene la foto.
+12. En el panel: **Auditoría** → cada cambio con su usuario y "Ver cambios" (antes y después).
+13. Deshacer: cerrar el aviso (*Cerrar*) y, si se quiere, quitar la foto.
+
+**4. Cuenta opcional (7:30 – 9:00)**
+
+14. En la app, en la ruta BS-1 tocar el **corazón** → invita a iniciar sesión → *Crear cuenta*
+    (nombre, correo, contraseña de 8 o más caracteres). Al volver queda guardada como favorita.
+15. Pestaña **Cuenta**: *Tus favoritos* (vienen del servidor) y *Tus últimas consultas* (solo en
+    el teléfono, con *Borrar*). Mostrar "Continuar con Google · Próximamente".
+
+**5. Cierre (9:00 – 10:00)**
+
+16. Seguridad: contraseñas con bcrypt, JWT, roles verificados en el servidor, límite de intentos
+    en login, token guardado en el almacenamiento seguro del teléfono, HTTPS con Let's Encrypt y
+    la base de datos sin puerto abierto a internet; respaldo diario (`pg_dump`, 7 días).
+17. Privacidad: la ubicación nunca sale del teléfono (cercanos y propuesta de viaje se calculan
+    en el celular).
+18. Siguientes pasos: medir un viaje real para reemplazar los tiempos estimados, festivos 2027,
+    inicio con Google, notificaciones (sección 10).
+
+**Plan B (sin el servidor de Azure)**: en el portátil `docker compose up -d --wait` y
+`npm run start:dev`; panel en `http://localhost:3000/panel`; el celular por USB con
+`adb reverse tcp:3000 tcp:3000` y `flutter run` (la app usa `http://localhost:3000/api/v1`).
+
+---
+
+## 12. Guion de la demo del backend — Opción A: desde el panel (≈ 10 minutos)
+
+> Usa `npm run seed:reset`, que **borra** los datos cargados desde el panel: solo en una
+> base de práctica, nunca con los datos reales.
 
 **Antes de empezar:** Docker Desktop abierto y luego
 
@@ -440,7 +525,7 @@ Para repetir la demo desde cero: `npm run seed:reset`.
 
 ---
 
-## 12. Guion de la demo — Opción B: desde Swagger
+## 13. Guion de la demo del backend — Opción B: desde Swagger
 
 **Antes de empezar:** Docker Desktop abierto y luego
 
