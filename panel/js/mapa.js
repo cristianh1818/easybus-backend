@@ -67,3 +67,18 @@ export function encuadrar(mapa, capas, zoomMaximo = 16) {
     mapa.fitBounds(grupo.getBounds(), { padding: [30, 30], maxZoom: zoomMaximo });
   }
 }
+
+// Longitud total de un trazado [[lng, lat], ...] en km (fórmula de haversine)
+export function longitudKm(coordenadas) {
+  const rad = (g) => (g * Math.PI) / 180;
+  let total = 0;
+  for (let i = 1; i < coordenadas.length; i++) {
+    const [lng1, lat1] = coordenadas[i - 1];
+    const [lng2, lat2] = coordenadas[i];
+    const a =
+      Math.sin(rad(lat2 - lat1) / 2) ** 2 +
+      Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lng2 - lng1) / 2) ** 2;
+    total += 2 * 6371 * Math.asin(Math.sqrt(a));
+  }
+  return total;
+}

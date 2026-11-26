@@ -346,6 +346,24 @@ input:focus, select:focus, textarea:focus {
   border: 2px solid #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
+/* Editor de trazado: vértices arrastrables y tiradores en la mitad de cada tramo */
+.vertice-trazado span,
+.tirador-medio span {
+  display: block;
+  box-sizing: border-box;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.vertice-trazado span { width: 14px; height: 14px; background: #e53935; border: 2px solid #fff; cursor: grab; }
+.vertice-trazado.extremo span { width: 18px; height: 18px; background: #b71c1c; }
+.tirador-medio span { width: 12px; height: 12px; background: #fff; border: 2px solid #e53935; opacity: 0.85; cursor: copy; }
+.tirador-medio:hover span { opacity: 1; transform: scale(1.25); }
+.arrastrando .tirador-medio:not(.activo) { display: none; }
+.etiqueta-embarcadero {
+  background: rgba(255, 255, 255, 0.9); border: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  font-size: 0.75rem; font-weight: 600; color: var(--rio-800); padding: 2px 6px;
+}
+.etiqueta-embarcadero::before { display: none; }
 .rejilla-mapa { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr); gap: 20px; }
 @media (max-width: 1100px) { .rejilla-mapa { grid-template-columns: 1fr; } }
 

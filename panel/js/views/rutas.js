@@ -1,11 +1,11 @@
 // Vista "Rutas" con dos modos:
 //   #/rutas        -> lista de rutas + formulario de crear/editar + activar/desactivar
 //   #/rutas/{id}   -> detalle: sentidos ida/vuelta, destino, secuencia de embarcaderos
-//                     (subir/bajar) y trazado dibujado con clics en el mapa
+//                     (subir/bajar) y editor de trazado (clic, arrastrar, curvas, borrar)
 
 import { get, post, patch, put, del } from '../api.js';
 import { esc, toast, mostrarError, conCarga, TEXTOS } from '../ui.js';
-import { crearMapa, punto, puntoNumerado, encuadrar, aLatLng, aLngLat, COLORES } from '../mapa.js';
+import { crearMapa, punto, puntoNumerado, encuadrar, aLatLng, aLngLat, longitudKm, COLORES } from '../mapa.js';
 
 let estado = null;
 let ultimoSentido = 'ida'; // se recuerda al volver a abrir una ruta
@@ -243,10 +243,16 @@ async function renderDetalle(id) {
           <span style="--c:${COLORES.inactivo}">Otros embarcaderos</span>
           <span style="--c:${COLORES.seleccion}">Puntos del trazado</span>
         </div>
-        <p class="ayuda" style="margin:10px 0">Haz clic sobre el río para agregar puntos en el orden del recorrido.</p>
+        <p class="ayuda" style="margin:10px 0">
+          <strong>Clic</strong> en el río: agrega un punto al final ·
+          <strong>Arrastra</strong> un punto para moverlo ·
+          <strong>Arrastra</strong> el punto blanco de la mitad de un tramo para crear una curva ·
+          <strong>Clic derecho</strong> o <strong>doble clic</strong> sobre un punto para borrarlo.
+        </p>
         <div class="fila">
-          <button type="button" class="btn btn-secundario btn-chico" id="btn-deshacer">↶ Deshacer último punto</button>
+          <button type="button" class="btn btn-secundario btn-chico" id="btn-deshacer">↶ Deshacer</button>
           <button type="button" class="btn btn-secundario btn-chico" id="btn-limpiar">Limpiar</button>
+          <button type="button" class="btn btn-secundario btn-chico" id="btn-copiar-trazado">⇄ Copiar del otro sentido invertido</button>
           <button type="button" class="btn btn-secundario btn-chico" id="btn-seguir">Unir embarcaderos en orden</button>
           <button type="button" class="btn btn-primario btn-chico" id="btn-guardar-trazado">Guardar trazado</button>
         </div>
@@ -294,6 +300,7 @@ function cargarSentidoEnEstado() {
   estado.sentidoActual = s;
   estado.secuencia = s ? s.embarcaderos.map((e) => e.id) : [];
   estado.puntos = s?.trazado ? s.trazado.coordinates.map((p) => [...p]) : [];
+  estado.historial = []; // copias de "puntos" antes de cada cambio, para deshacer
   estado.sucioSecuencia = false;
   estado.sucioTrazado = false;
 }
@@ -417,6 +424,7 @@ function conectarEventosDetalle() {
     if (!s || s.embarcaderos.length === 0) return toast(`El sentido ${otro} no tiene embarcaderos asignados.`, 'error');
     estado.secuencia = s.embarcaderos.map((e) => e.id).reverse();
     if (s.trazado && estado.puntos.length === 0) {
+      guardarHistorial();
       estado.puntos = s.trazado.coordinates.map((p) => [...p]).reverse();
       estado.sucioTrazado = true;
     }
@@ -487,21 +495,35 @@ function conectarEventosDetalle() {
 
   // --- Trazado ---
   c.querySelector('#btn-deshacer').addEventListener('click', () => {
-    if (estado.puntos.pop()) {
-      estado.sucioTrazado = true;
-      pintarMapaSentido();
-    }
+    if (!estado.historial.length) return toast('No hay nada que deshacer.');
+    estado.puntos = estado.historial.pop();
+    estado.sucioTrazado = true;
+    pintarMapaSentido();
   });
   c.querySelector('#btn-limpiar').addEventListener('click', () => {
-    if (estado.puntos.length && confirm('¿Borrar todos los puntos del trazado?')) {
+    if (estado.puntos.length && confirm('¿Borrar todos los puntos del trazado? (Se puede deshacer)')) {
+      guardarHistorial();
       estado.puntos = [];
       estado.sucioTrazado = true;
       pintarMapaSentido();
     }
   });
+  c.querySelector('#btn-copiar-trazado').addEventListener('click', () => {
+    const otro = estado.sentido === 'ida' ? 'vuelta' : 'ida';
+    const s = estado.ruta.sentidos.find((x) => x.sentido === otro);
+    if (!s?.trazado?.coordinates?.length) return toast(`El sentido ${otro} no tiene trazado guardado.`, 'error');
+    if (estado.puntos.length && !confirm(`¿Reemplazar el trazado actual por el de ${otro} invertido? (Se puede deshacer)`)) return;
+    guardarHistorial();
+    estado.puntos = s.trazado.coordinates.map((p) => [...p]).reverse();
+    estado.sucioTrazado = true;
+    pintarMapaSentido();
+    encuadrarSentido();
+    toast(`Se copió el trazado de ${otro} al revés (${estado.puntos.length} puntos). Recuerda guardar.`);
+  });
   c.querySelector('#btn-seguir').addEventListener('click', () => {
     const pts = estado.secuencia.map((id) => estado.embarcaderos.find((e) => e.id === id)).filter(Boolean);
     if (pts.length < 2) return toast('Asigna al menos 2 embarcaderos para unirlos.', 'error');
+    guardarHistorial();
     estado.puntos = pts.map((e) => [e.longitud, e.latitud]);
     estado.sucioTrazado = true;
     pintarMapaSentido();
@@ -622,7 +644,15 @@ function pintarSecuencia() {
 function actualizarAvisoSinGuardar() {
   if (!estado?.c) return;
   estado.c.querySelector('#aviso-sin-guardar').hidden = !(estado.sucioSecuencia || estado.sucioTrazado);
-  estado.c.querySelector('#info-puntos').textContent = `${estado.puntos.length} punto(s)${estado.sucioTrazado ? ' · sin guardar' : ''}`;
+  const km = longitudKm(estado.puntos).toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  estado.c.querySelector('#info-puntos').textContent =
+    `${estado.puntos.length} punto(s) · ${km} km${estado.sucioTrazado ? ' · sin guardar' : ''}`;
+}
+
+// Guarda una copia del trazado antes de cambiarlo (para "Deshacer")
+function guardarHistorial() {
+  estado.historial.push(estado.puntos.map((p) => [...p]));
+  if (estado.historial.length > 100) estado.historial.shift();
 }
 
 // ---------- Mapa del detalle ----------
@@ -631,6 +661,7 @@ function iniciarMapa() {
   estado.mapa = crearMapa(estado.c.querySelector('#mapa-ruta'));
   estado.mapa.on('click', (e) => {
     if (!estado.sentidoActual) return toast('Primero crea el sentido con su destino.', 'error');
+    guardarHistorial();
     estado.puntos.push(aLngLat(e.latlng));
     estado.sucioTrazado = true;
     pintarMapaSentido();
@@ -654,25 +685,95 @@ function pintarMapaSentido() {
     );
   }
 
-  // Línea del trazado y sus vértices
+  // Línea del trazado (se actualiza en vivo mientras se arrastra un punto)
   const color = estado.ruta.color || COLORES.trazado;
+  estado.linea = null;
   if (estado.puntos.length) {
-    const latlngs = estado.puntos.map(aLatLng);
-    estado.capas.push(L.polyline(latlngs, { color, weight: 5, opacity: 0.85, interactive: false }).addTo(estado.mapa));
-    latlngs.forEach((ll, i) => {
-      const ultimo = i === latlngs.length - 1;
-      estado.capas.push(
-        punto(ll, { color: COLORES.seleccion, radio: ultimo ? 6 : 4, interactivo: false }).addTo(estado.mapa),
-      );
-    });
+    estado.linea = L.polyline(estado.puntos.map(aLatLng), { color, weight: 5, opacity: 0.85, interactive: false });
+    estado.capas.push(estado.linea.addTo(estado.mapa));
   }
+  if (estado.sentidoActual) pintarEditorTrazado();
 
   // Embarcaderos de la secuencia, numerados
   estado.secuencia.forEach((id, i) => {
     const e = estado.embarcaderos.find((x) => x.id === id);
     if (e) {
-      estado.capas.push(puntoNumerado([e.latitud, e.longitud], i + 1, COLORES.activo, false).addTo(estado.mapa));
+      const m = puntoNumerado([e.latitud, e.longitud], i + 1, COLORES.activo, false);
+      m.bindTooltip(esc(e.nombre), { permanent: true, direction: 'right', offset: [14, 0], className: 'etiqueta-embarcadero' });
+      estado.capas.push(m.addTo(estado.mapa));
     }
+  });
+}
+
+// Vértices arrastrables + tiradores en la mitad de cada tramo
+function pintarEditorTrazado() {
+  const L = window.L;
+  const pts = estado.puntos;
+  const contenedor = estado.mapa.getContainer();
+  const icono = (clase, tam) =>
+    L.divIcon({ className: clase, html: '<span></span>', iconSize: [tam, tam], iconAnchor: [tam / 2, tam / 2] });
+
+  const alArrastrar = () => {
+    estado.linea?.setLatLngs(pts.map(aLatLng));
+    actualizarAvisoSinGuardar();
+  };
+  const alSoltar = () => {
+    contenedor.classList.remove('arrastrando');
+    estado.sucioTrazado = true;
+    pintarMapaSentido();
+  };
+  const borrar = (i) => (ev) => {
+    L.DomEvent.stop(ev.originalEvent);
+    guardarHistorial();
+    pts.splice(i, 1);
+    estado.sucioTrazado = true;
+    pintarMapaSentido();
+  };
+
+  // Tiradores de la mitad: al arrastrarlos se inserta un punto nuevo en ese tramo
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [a, b] = [pts[i], pts[i + 1]];
+    const medio = L.marker([(a[1] + b[1]) / 2, (a[0] + b[0]) / 2], {
+      draggable: true,
+      icon: icono('tirador-medio', 12),
+      zIndexOffset: 500,
+      title: 'Arrastra para crear un punto aquí',
+    });
+    medio.on('dragstart', () => {
+      guardarHistorial();
+      contenedor.classList.add('arrastrando');
+      medio.getElement()?.classList.add('activo');
+      pts.splice(i + 1, 0, aLngLat(medio.getLatLng()));
+    });
+    medio.on('drag', () => {
+      pts[i + 1] = aLngLat(medio.getLatLng());
+      alArrastrar();
+    });
+    medio.on('dragend', alSoltar);
+    estado.capas.push(medio.addTo(estado.mapa));
+  }
+
+  // Vértices: arrastrar para mover; clic derecho o doble clic para borrar
+  pts.forEach((p, i) => {
+    const extremo = i === 0 || i === pts.length - 1;
+    const v = L.marker(aLatLng(p), {
+      draggable: true,
+      icon: icono(`vertice-trazado${extremo ? ' extremo' : ''}`, extremo ? 18 : 14),
+      zIndexOffset: 1000,
+      title: `Punto ${i + 1} · arrastra para mover, clic derecho o doble clic para borrar`,
+    });
+    v.on('dragstart', () => {
+      guardarHistorial();
+      contenedor.classList.add('arrastrando');
+    });
+    v.on('drag', () => {
+      pts[i] = aLngLat(v.getLatLng());
+      alArrastrar();
+    });
+    v.on('dragend', alSoltar);
+    v.on('contextmenu', borrar(i));
+    v.on('dblclick', borrar(i));
+    estado.capas.push(v.addTo(estado.mapa));
   });
 }
 
