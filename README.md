@@ -50,7 +50,7 @@ Copy-Item .env.example .env
 # 3. Levantar PostgreSQL + PostGIS
 docker compose up -d --wait
 
-# 4. Cargar los datos de ejemplo (2 rutas, 6 embarcaderos, horarios y festivos 2026)
+# 4. Cargar los datos de ejemplo (ruta BS-1, 11 embarcaderos, 4 embarcaciones, horarios y festivos 2026)
 npm run seed:reset
 
 # 5. Arrancar la API en modo desarrollo (se recarga sola al guardar cambios)
@@ -418,7 +418,7 @@ Abrir **<http://localhost:3000/panel>** (y, en otra pestaña, <http://localhost:
    Probar latitud `200` → mensaje de error 400 en español.
 9. **Rutas** → crear `BS-9` "Ruta Demo" (se abre su detalle). Repetir el código → error 409.
 10. En el detalle, pestaña **Ida**: destino "Embarcadero Demo" → *Crear sentido*.
-11. Agregar *Embarcadero Centro* y *Embarcadero Demo*, ordenarlos con ↑ ↓ → *Guardar orden*.
+11. Agregar *Embarcadero María Varilla* y *Embarcadero Demo*, ordenarlos con ↑ ↓ → *Guardar orden*.
 12. *Unir embarcaderos en orden* (o clics sobre el río) → *Guardar trazado* (GeoJSON LineString).
 13. **Horarios** → ruta BS-9, Ida, *Laboral* → generador 06:00–18:00 cada 60 → *Reemplazar lista*;
     quitar una hora con ✕ y agregar otra.
@@ -458,7 +458,7 @@ Abrir **<http://localhost:3000/api/docs>**.
 
 ### Parte 2 — Consultas públicas, sin iniciar sesión (2 min)
 
-3. **Público · Rutas → `GET /rutas`** → las 2 rutas de ejemplo (BS-1 y BS-2). Señalar `esOficial: false`.
+3. **Público · Rutas → `GET /rutas`** → la ruta de ejemplo BS-1 "Businú". Señalar `esOficial: false`.
    **Copiar el `id` de BS-1** (se usa varias veces).
 4. **`GET /rutas/{id}`** con ese id → sentidos ida y vuelta, `trazado` en GeoJSON (lo dibuja el mapa)
    y embarcaderos **en orden**: la vuelta es la ida al revés.
@@ -499,9 +499,9 @@ Abrir **<http://localhost:3000/api/docs>**.
                    "coordinates": [[-75.883, 8.753], [-75.8833, 8.751], [-75.8836, 8.7495]] } }
     ```
 13. **`PUT /admin/rutas/{id}/sentidos/{sentido}/embarcaderos`** (`ida`) — usar el id del Embarcadero
-    Centro (de `GET /admin/embarcaderos`) y el del Embarcadero Demo:
+    María Varilla (de `GET /admin/embarcaderos`) y el del Embarcadero Demo:
     ```json
-    { "embarcaderoIds": ["<id Embarcadero Centro>", "<id Embarcadero Demo>"] }
+    { "embarcaderoIds": ["<id Embarcadero María Varilla>", "<id Embarcadero Demo>"] }
     ```
     → la respuesta muestra el **orden** 1 y 2.
 14. **Admin · Horarios → `PUT /admin/rutas/{id}/sentidos/{sentido}/horarios/{tipoDia}`**

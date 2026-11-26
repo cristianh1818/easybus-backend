@@ -17,7 +17,8 @@ import { Reporte } from '../reportes/entities/reporte.entity.js';
 import { Auditoria } from '../auditoria/entities/auditoria.entity.js';
 import { EstadoEmbarcadero, EstadoRuta, TipoDia, TipoReporte } from '../common/enums.js';
 import { recalcularTiemposEstimados } from '../rutas/tiempos-estimados.js';
-import { EMBARCADEROS, FESTIVOS_2026, RUTAS } from './datos-ejemplo.js';
+import { Embarcacion } from '../embarcaciones/entities/embarcacion.entity.js';
+import { EMBARCACIONES, EMBARCADEROS, FESTIVOS_2026, RUTAS } from './datos-ejemplo.js';
 
 async function seed() {
   const logger = { log: (msg: string) => console.log(`[Seed] ${msg}`) };
@@ -39,11 +40,16 @@ async function seed() {
     if (reiniciar) {
       await m.delete(Ruta, { esOficial: false });
       await m.delete(Embarcadero, { esOficial: false });
-      logger.log('Rutas y embarcaderos no oficiales borrados');
+      await m.delete(Embarcacion, { esOficial: false });
+      logger.log('Rutas, embarcaderos y embarcaciones no oficiales borrados');
     } else {
       await m.delete(Ruta, { codigo: In(RUTAS.map((r) => r.codigo)) });
       await m.delete(Embarcadero, {
         nombre: In(EMBARCADEROS.map((e) => e.nombre)),
+        esOficial: false,
+      });
+      await m.delete(Embarcacion, {
+        codigo: In(EMBARCACIONES.map((e) => e.codigo)),
         esOficial: false,
       });
     }
@@ -57,12 +63,23 @@ async function seed() {
           referencia: e.referencia,
           ubicacion: { type: 'Point', coordinates: [e.longitud, e.latitud] },
           estado: EstadoEmbarcadero.ACTIVO,
+          margen: e.margen,
+          tieneRampa: e.tieneRampa,
+          tieneTecho: e.tieneTecho,
+          tieneIluminacion: e.tieneIluminacion,
           esOficial: false,
         }),
       );
       ids.set(e.clave, guardado.id);
     }
     logger.log(`${EMBARCADEROS.length} embarcaderos creados`);
+
+    // Embarcaciones (solo inventario: sin GPS en la beta)
+    await m.insert(
+      Embarcacion,
+      EMBARCACIONES.map((e) => ({ ...e, esOficial: false })),
+    );
+    logger.log(`${EMBARCACIONES.length} embarcaciones creadas`);
 
     // 3. Rutas con sus sentidos, trazado, secuencia y horarios
     let totalHorarios = 0;
@@ -129,9 +146,9 @@ async function seed() {
         m.create(Reporte, {
           tipo: TipoReporte.HORARIO,
           descripcion:
-            'Ejemplo: la salida de las 06:00 desde el Embarcadero Ronda Norte pasó 10 minutos tarde.',
+            'Ejemplo: la salida de las 06:00 desde el Embarcadero Sierra Chiquita pasó 10 minutos tarde.',
           rutaId: bs1.id,
-          embarcaderoId: ids.get('NORTE')!,
+          embarcaderoId: ids.get('SIERRA_CHIQUITA')!,
         }),
       );
       logger.log('1 reporte de ejemplo creado');
