@@ -130,7 +130,7 @@ export class AdminRutasController {
   @Post(':id/sentidos/:sentido/tiempos/recalcular')
   @ApiParam({ name: 'sentido', enum: Sentido })
   @ApiOperation({
-    summary: 'Recalcular los tiempos estimados (10 min/km por el trazado; nunca menos que la línea recta)',
+    summary: 'Recalcular los tiempos estimados (20 km/h por el trazado, nunca menos que la línea recta, + 1 min por parada intermedia)',
   })
   recalcularTiempos(
     @Param('id', ParseUUIDPipe) id: string,

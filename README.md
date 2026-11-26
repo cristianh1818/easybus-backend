@@ -157,7 +157,10 @@ dias_festivos     reportes (→ usuario, ruta, embarcadero)     auditoria (→ u
   embarcadero, que siempre es 0) y `tiempo_estimado` (sí = calculado; no = tiempo real registrado).
   Hora estimada de paso por un embarcadero = hora de salida + minutos_desde_origen.
 
-**Regla de estimación (regla B):** 10 minutos por km. Cada tramo entre embarcaderos consecutivos
+**Regla de estimación (regla B):** 20 km/h (3 min por km) más **1 minuto por cada parada
+intermedia**; en una parada intermedia el tiempo es la hora en que la embarcación sale de ahí, y en
+el destino final es la hora de llegada. Es una **estimación pendiente de medir en un viaje real**
+(BS-1: unos 60 min de Sierra Chiquita a Boca de la Ceiba). Cada tramo entre embarcaderos consecutivos
 mide lo **mayor** entre la distancia a lo largo del trazado (`ST_LineLocatePoint` + `ST_LineSubstring`
 + `ST_Length` sobre geography) y la distancia en línea recta, para que un trazado que no pasa por un
 embarcadero no produzca tramos más cortos que la línea recta. Sin trazado se usa la línea recta.

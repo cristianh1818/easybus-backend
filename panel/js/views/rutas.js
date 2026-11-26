@@ -283,7 +283,7 @@ async function renderDetalle(id) {
           <div class="fila">
             <button type="button" class="btn btn-primario" id="btn-guardar-secuencia">Guardar orden</button>
             <button type="button" class="btn btn-secundario" id="btn-invertir">Copiar inverso del otro sentido</button>
-            <button type="button" class="btn btn-secundario" id="btn-recalcular" title="10 min/km por el trazado; nunca menos que la línea recta. Los tiempos reales no se tocan.">Recalcular estimados</button>
+            <button type="button" class="btn btn-secundario" id="btn-recalcular" title="20 km/h por el trazado (nunca menos que la línea recta) + 1 min por parada intermedia. Los tiempos reales no se tocan.">Recalcular estimados</button>
           </div>
         </section>
       </div>
@@ -631,7 +631,7 @@ function pintarSecuencia() {
 
   c.querySelector('#ayuda-tiempos').textContent = bloquearTiempos
     ? 'Guarda el orden para editar los tiempos: al guardarlo se recalculan los estimados.'
-    : 'Minutos desde el zarpe en el origen. Escribir un valor lo marca como tiempo real; "estimado" = 10 min/km por el trazado.';
+    : 'Minutos desde el zarpe en el origen. Escribir un valor lo marca como tiempo real; "estimado" = 20 km/h por el trazado + 1 min por parada.';
 
   const disponibles = estado.embarcaderos.filter((e) => e.estado !== 'inactivo' && !estado.secuencia.includes(e.id));
   c.querySelector('#sel-agregar').innerHTML = disponibles.length

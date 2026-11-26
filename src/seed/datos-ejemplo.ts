@@ -275,12 +275,17 @@ export const RUTAS: RutaEjemplo[] = [
   },
 ];
 
-// Embarcaciones del Businú (sin GPS en la beta: solo inventario)
+// Embarcaciones del Businú (sin GPS en la beta: solo inventario).
+// Son 5 para que cuadre con los horarios: a 20 km/h + 1 min por parada un viaje dura
+// unos 60 min; ida, vuelta y unos 10 min de espera ≈ 130 min, y con una salida cada
+// 30 min desde cada extremo hacen falta ceil(130 / 30) = 5 embarcaciones.
+// La capacidad de BN-05 es de ejemplo (el promedio de las otras cuatro).
 export const EMBARCACIONES = [
   { codigo: 'BN-01', nombre: 'Businu 1', capacidad: 39 },
   { codigo: 'BN-02', nombre: 'Businu 2', capacidad: 25 },
   { codigo: 'BN-03', nombre: 'Businu 3', capacidad: 35 },
   { codigo: 'BN-04', nombre: 'Businu 4', capacidad: 40 },
+  { codigo: 'BN-05', nombre: 'Businu 5', capacidad: 35 },
 ];
 
 // Festivos de Colombia 2026 (Ley 51 de 1983 / Ley Emiliani).

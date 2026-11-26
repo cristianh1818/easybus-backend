@@ -23,7 +23,7 @@ export class RutaEmbarcadero {
   @Column({ name: 'minutos_desde_origen', type: 'smallint', default: 0 })
   minutosDesdeOrigen: number;
 
-  // true: calculado por distancia (10 min/km, se recalcula solo);
+  // true: calculado por distancia (20 km/h + 1 min por parada, se recalcula solo);
   // false: tiempo real registrado por el administrador (no se toca al recalcular)
   @Column({ name: 'tiempo_estimado', default: true })
   tiempoEstimado: boolean;

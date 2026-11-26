@@ -1,7 +1,12 @@
 // Estimación de minutos_desde_origen de cada embarcadero de un sentido.
 //
 // Regla B (decisión del proyecto):
-//   - Velocidad estimada: 10 minutos por km (1 minuto cada 100 m).
+//   - Velocidad estimada: 20 km/h (3 minutos por km) MÁS 1 minuto por cada parada
+//     intermedia (subir y bajar pasajeros). ESTIMACIÓN pendiente de medir en un viaje
+//     real (2026-11-26); antes era 10 min/km, que no cuadraba con la flota.
+//   - En una parada intermedia el tiempo incluye su propio minuto: es la hora en que la
+//     embarcación SALE de ahí (lo que le sirve al pasajero que espera). En el destino
+//     final no se suma: es la hora de llegada.
 //   - Cada tramo entre embarcaderos consecutivos mide lo MAYOR entre:
 //       · la distancia a lo largo del trazado (ST_LineLocatePoint + ST_LineSubstring + ST_Length en geography)
 //       · la distancia en línea recta (ST_Distance en geography)
@@ -9,12 +14,47 @@
 //     Si el sentido no tiene trazado, se usa solo la línea recta.
 //   - El primer embarcadero siempre queda en 0.
 //   - Solo se recalculan las filas con tiempo_estimado = true. Una fila con tiempo real
-//     (tiempo_estimado = false) no se toca y sirve de punto de partida para las estimadas siguientes.
+//     (tiempo_estimado = false) no se toca y sirve de punto de partida para las estimadas siguientes
+//     (se toma como la hora de salida de ese embarcadero).
 
 import { EntityManager } from 'typeorm';
 
-export const METROS_POR_MINUTO = 100; // 10 min/km
+export const VELOCIDAD_KMH = 20;
+export const METROS_POR_MINUTO = (VELOCIDAD_KMH * 1000) / 60; // ≈ 333 m por minuto
+export const MINUTOS_POR_PARADA = 1;
 export const UMBRAL_LEJOS_DEL_TRAZADO_M = 150;
+
+export interface ParadaParaEstimar {
+  tiempoEstimado: boolean;
+  minutosActuales: number;
+  /** Metros recorridos desde el origen hasta esta parada (regla B). */
+  acumuladoM: number;
+}
+
+// Minutos desde el origen de cada parada de la secuencia (en orden). Las filas con
+// tiempo real devuelven su mismo valor. Sin base de datos: se puede probar sola.
+export function calcularMinutos(paradas: ParadaParaEstimar[]): number[] {
+  let anclaMinutos = 0;
+  let anclaMetros = 0;
+  let paradasDesdeAncla = 0;
+  const ultima = paradas.length - 1;
+
+  return paradas.map((p, i) => {
+    if (i === 0) return 0; // el origen siempre es 0, sea estimado o real
+    if (i < ultima) paradasDesdeAncla++; // minuto de parada (no en el destino final)
+    if (!p.tiempoEstimado) {
+      // Tiempo real: se respeta y las estimaciones siguientes parten de él
+      anclaMinutos = p.minutosActuales;
+      anclaMetros = p.acumuladoM;
+      paradasDesdeAncla = 0;
+      return p.minutosActuales;
+    }
+    return (
+      anclaMinutos +
+      Math.round((p.acumuladoM - anclaMetros) / METROS_POR_MINUTO + paradasDesdeAncla * MINUTOS_POR_PARADA)
+    );
+  });
+}
 
 interface FilaDistancia {
   embarcadero_id: string;
@@ -57,25 +97,17 @@ export async function recalcularTiemposEstimados(
 ): Promise<number> {
   const filas = await manager.query<FilaDistancia[]>(SQL_DISTANCIAS, [rutaSentidoId]);
 
-  let anclaMinutos = 0;
-  let anclaMetros = 0;
+  const minutosNuevos = calcularMinutos(
+    filas.map((f) => ({
+      tiempoEstimado: f.tiempo_estimado,
+      minutosActuales: f.minutos_desde_origen,
+      acumuladoM: Number(f.acumulado_m),
+    })),
+  );
   let cambios = 0;
 
   for (const [i, f] of filas.entries()) {
-    const metros = Number(f.acumulado_m);
-    let minutos: number;
-
-    if (i === 0) {
-      minutos = 0; // el origen siempre es 0, sea estimado o real
-    } else if (!f.tiempo_estimado) {
-      // Tiempo real: se respeta y las estimaciones siguientes parten de él
-      anclaMinutos = f.minutos_desde_origen;
-      anclaMetros = metros;
-      continue;
-    } else {
-      minutos = anclaMinutos + Math.round((metros - anclaMetros) / METROS_POR_MINUTO);
-    }
-
+    const minutos = minutosNuevos[i];
     if (minutos !== f.minutos_desde_origen) {
       await manager.query(
         `UPDATE ruta_embarcaderos SET minutos_desde_origen = $1
