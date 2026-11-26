@@ -1,0 +1,22 @@
+# Caddy: HTTPS automático (Let's Encrypt) para el host de EASYBUS_HOST (.env).
+# Necesita los puertos 80 y 443 abiertos en Azure y que el host apunte a esta VM.
+{$EASYBUS_HOST} {
+	encode zstd gzip
+
+	# La raíz lleva al panel de administración
+	redir / /panel/ 302
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	# Fotos hasta 10 MB por petición (la API valida su propio límite)
+	request_body {
+		max_size 10MB
+	}
+
+	reverse_proxy api:3000
+}

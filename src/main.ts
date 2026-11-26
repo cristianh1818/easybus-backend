@@ -9,6 +9,17 @@ import { ErroresFilter } from './common/errores/errores.filter.js';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Detrás de un proxy (Caddy en producción): la IP real del cliente viene en
+  // X-Forwarded-For. Sin esto el límite de peticiones (throttler) vería a todos los
+  // usuarios como una sola IP, la del proxy. TRUST_PROXY=1 = confiar en un salto.
+  const trustProxy = process.env.TRUST_PROXY;
+  if (trustProxy) {
+    app.set(
+      'trust proxy',
+      /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy,
+    );
+  }
+
   // Todas las rutas de la API empiezan por /api/v1 (versionado)
   app.setGlobalPrefix('api/v1');
 
@@ -24,7 +35,9 @@ async function bootstrap() {
   });
 
   // CORS: en producción solo se acepta el dominio del panel (variable CORS_ORIGINS)
-  const origenes = process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean);
+  const origenes = process.env.CORS_ORIGINS?.split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   app.enableCors({ origin: origenes?.length ? origenes : true });
 
   // Valida automáticamente los datos de entrada según los DTOs:
@@ -43,7 +56,8 @@ async function bootstrap() {
   app.useGlobalFilters(new ErroresFilter());
 
   // Documentación interactiva en /api/docs (solo desarrollo y pruebas, sección 9.1)
-  if (process.env.SWAGGER_ENABLED !== 'false') {
+  const swagger = process.env.SWAGGER_ENABLED !== 'false';
+  if (swagger) {
     const config = new DocumentBuilder()
       .setTitle('EASYBUS API')
       .setDescription(
@@ -96,6 +110,7 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
   console.log(`EASYBUS API escuchando en http://localhost:${port}/api/v1`);
-  console.log(`Documentación Swagger en http://localhost:${port}/api/docs`);
+  if (swagger)
+    console.log(`Documentación Swagger en http://localhost:${port}/api/docs`);
 }
 await bootstrap();

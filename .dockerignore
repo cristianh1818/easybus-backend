@@ -1,0 +1,20 @@
+# Lo que NO entra a la imagen de Docker (ni secretos, ni datos, ni compilados locales)
+node_modules
+dist
+dist-seed
+coverage
+backups
+uploads
+uploads-prueba
+.env
+.env.*
+!.env.production.example
+.git
+.github
+docs
+test
+*.log
+*.tsbuildinfo
+deploy
+Dockerfile
+docker-compose*.yml

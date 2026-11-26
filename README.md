@@ -95,8 +95,13 @@ easybus-backend/
 ├── panel/                  Panel visual de pruebas servido en /panel (ver sección 9)
 ├── src/                    Código del backend (detalle abajo)
 ├── test/                   Pruebas de integración (e2e)
-├── docker-compose.yml      Base de datos PostgreSQL + PostGIS
+├── deploy/                 Producción: Caddyfile, respaldo diario y scripts de migrar datos
+├── docker-compose.yml      Base de datos PostgreSQL + PostGIS (desarrollo)
+├── docker-compose.prod.yml Producción en Azure: API + base + Caddy (HTTPS) + respaldo
+├── Dockerfile              Imagen de la API para producción
+├── DESPLIEGUE.md           Guía paso a paso para desplegar en la VM de Azure
 ├── .env.example            Plantilla de variables de entorno (copiar como .env)
+├── .env.production.example Plantilla del .env de producción
 └── package.json, tsconfig*.json, nest-cli.json, vitest.config*.ts   Configuración
 ```
 
@@ -384,6 +389,8 @@ panel/
   vienen de internet (OpenStreetMap).
 
 ## 10. Pendiente para siguientes iteraciones
+
+> Despliegue en Azure (Docker + Caddy con HTTPS): ver [DESPLIEGUE.md](DESPLIEGUE.md).
 
 - Token de renovación (refresh) con rotación y `/auth/logout`.
 - Importación CSV / GeoJSON (RF-19).

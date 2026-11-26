@@ -1,0 +1,99 @@
+# EASYBUS en producción (VM de Azure). Guía completa: DESPLIEGUE.md
+#
+#   Internet ──443/80──► caddy (HTTPS automático) ──► api:3000 ──► postgres:5432
+#                                                                    ▲
+#                                              respaldo (pg_dump diario, 7 días)
+#
+# Solo Caddy publica puertos (80 y 443). La base y la API no se ven desde fuera.
+# Los valores ${...} salen del archivo .env de esta carpeta (copia de
+# .env.production.example). Con COMPOSE_FILE=docker-compose.prod.yml en el .env,
+# basta escribir "docker compose ..." sin "-f".
+name: easybus
+
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: America/Bogota
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Sin "ports": la base solo es accesible dentro de la red de Docker.
+
+  api:
+    build: .
+    image: easybus-api:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_MIGRATIONS_RUN: 'true'
+      SWAGGER_ENABLED: 'false'
+      # Caddy está delante: confiar en un salto de proxy para ver la IP real
+      TRUST_PROXY: '1'
+      CORS_ORIGINS: https://${EASYBUS_HOST}
+      UPLOADS_DIR: /app/uploads
+      TZ: America/Bogota
+    volumes:
+      - uploads:/app/uploads
+    logging: &logs
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      EASYBUS_HOST: ${EASYBUS_HOST}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data # certificados HTTPS (no borrar)
+      - caddy_config:/config
+    logging: *logs
+
+  respaldo:
+    # Misma imagen que la base: trae pg_dump de la misma versión (17)
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ['sh', '/respaldo.sh']
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${DB_NAME}
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      HORA_RESPALDO: ${HORA_RESPALDO:-3}
+      DIAS_RESPALDO: ${DIAS_RESPALDO:-7}
+      TZ: America/Bogota
+    volumes:
+      - ./deploy/respaldo.sh:/respaldo.sh:ro
+      - ./backups:/backups # en la VM: /opt/easybus/backups
+      - uploads:/uploads:ro
+    logging: *logs
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:
