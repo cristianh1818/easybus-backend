@@ -68,6 +68,7 @@ async function bootstrap() {
       .addTag('Público · Embarcaderos')
       .addTag('Público · Avisos')
       .addTag('Público · Reportes')
+      .addTag('Cuenta · Favoritos')
       .addTag('Admin · Resumen')
       .addTag('Admin · Embarcaderos')
       .addTag('Admin · Rutas')
